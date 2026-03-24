@@ -112,7 +112,23 @@ void tdo_arena_state_set(struct TdoArena *arena, struct TdoArenaState state) {
     tdo_arena_state_clear(&(struct TdoArena) { .first = node, .latest = NULL });
 }
 
-char *tdo_buffer_alloc(char *buffer_start, char *buffer_end, size_t bytes);
+char *tdo_buffer_alloc(char *buffer_start, char *buffer_end, size_t bytes) {
+    if (buffer_end < buffer_start) {
+        fprintf(stderr, "Buffer start has gone past end\n");
+        abort();
+    }
+
+    size_t current_offset = ((uintptr_t) buffer_start) % TDO_ARENA_ALIGNMENT;
+    size_t remaining_offset = (TDO_ARENA_ALIGNMENT - current_offset) % TDO_ARENA_ALIGNMENT;
+
+    if ((uintptr_t) buffer_start > UINTPTR_MAX - remaining_offset) return NULL; // overflow due to alignment
+    char *aligned_data = buffer_start + remaining_offset;
+    if (buffer_end < aligned_data) return NULL; // just the alignment went past the end
+
+    size_t remaining_capacity = (size_t) (buffer_end - aligned_data);
+    if (remaining_capacity < bytes) return NULL; // allocation does not fit
+    return aligned_data;
+}
 
 void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
     if (amount > SIZE_MAX / type_size) return NULL;
