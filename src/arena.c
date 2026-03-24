@@ -131,7 +131,7 @@ char *tdo_buffer_alloc(char *buffer_start, char *buffer_end, size_t bytes) {
 }
 
 void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
-    if (amount > SIZE_MAX / type_size) return NULL;
+    if (amount > SIZE_MAX / type_size) return NULL; // size overflow
     size_t total_bytes = type_size * amount;
 
     for (struct TdoArenaNode *node = arena->latest; node != NULL; node = node->next) {
@@ -144,17 +144,39 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
         node->current = node->end;
     }
 
-    if (arena->latest->next != NULL && arena->latest->current == arena->latest->end) {
+    if (arena->latest->next != NULL || arena->latest->current != arena->latest->end) {
         fprintf(stderr, "Expected arena to be exhausted\n");
         abort();
     }
 
     size_t capacity = (char*) arena->latest->end - ((char*) arena->latest + sizeof(struct TdoArenaNode));
-    if (capacity > SIZE_MAX / 2)
 
+    if (capacity > SIZE_MAX / 2) return NULL; // cannot grow arena
+    size_t new_capacity = 2 * capacity;
 
-        
-    void *allocation = tdo_buffer_alloc(arena->latest)
+    if (total_bytes > SIZE_MAX - TDO_ARENA_ALIGNMENT) return NULL; // cannot, in general, align allocation
+    new_capacity = new_capacity < total_bytes ? total_bytes + TDO_ARENA_ALIGNMENT : new_capacity;
 
-    return NULL;
+    if (new_capacity > SIZE_MAX - sizeof(struct TdoArenaNode)) return NULL; // cannot fit node header in allocation
+    struct TdoArenaNode *node = malloc(new_capacity + sizeof(struct TdoArenaNode));
+    if (node == NULL) return NULL; // new node allocation failed
+
+    char *buffer = (char*) node + sizeof(struct TdoArenaNode);
+
+    *node = (struct TdoArenaNode) {
+        .next = NULL,
+        .current = buffer,
+        .end = buffer + new_capacity,
+    };
+
+    arena->latest->next = node;
+    arena->latest = node;
+
+    void *allocation = tdo_buffer_alloc(arena->latest->current, arena->latest->end, total_bytes);
+    if (allocation == NULL) {
+        fprintf(stderr, "Arena grew but was still not able to fit allocation\n");
+        abort();
+    }
+
+    return allocation;
 }
