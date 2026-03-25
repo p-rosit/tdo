@@ -158,7 +158,7 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
     size_t new_capacity = 2 * capacity;
 
     if (total_bytes > SIZE_MAX - TDO_ARENA_ALIGNMENT) return NULL; // cannot, in general, align allocation
-    new_capacity = new_capacity < total_bytes ? total_bytes + TDO_ARENA_ALIGNMENT : new_capacity;
+    new_capacity = new_capacity < total_bytes + TDO_ARENA_ALIGNMENT ? total_bytes + TDO_ARENA_ALIGNMENT : new_capacity;
 
     if (new_capacity > SIZE_MAX - sizeof(struct TdoArenaNode)) return NULL; // cannot fit node header in allocation
     struct TdoArenaNode *node = malloc(new_capacity + sizeof(struct TdoArenaNode));
