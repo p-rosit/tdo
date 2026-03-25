@@ -1,6 +1,9 @@
 #include "arena.c"
+#include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+
+#include <unistd.h>
 
 struct TdoString {
     char *bytes;
@@ -51,4 +54,49 @@ bool tdo_string_append(struct TdoString *string, struct TdoArena *arena, size_t 
     string->bytes[string->length] = '\0';
 
     return true;
+}
+
+struct TdoLog {
+    int fd;
+    struct TdoString data;
+    size_t capacity;
+};
+
+struct TdoLog tdo_log_init(int fd) {
+    return (struct TdoLog) {
+        .fd = fd,
+        .data = (struct TdoString) {
+            .bytes = NULL,
+            .length = 0,
+        },
+        .capacity = 0,
+    };
+}
+
+void tdo_log_reset(struct TdoLog *log) {
+    log->data.length = 0;
+}
+
+bool tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
+    bool result = true;
+
+    char buffer[1024];
+    while (true) {
+        errno = 0;
+        ssize_t bytes_read = read(log->fd, buffer, sizeof(buffer));
+
+        if (bytes_read > 0) {
+            result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
+            if (!result) return false;
+        } else if (bytes_read == 0) {
+            break;
+        } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+            break;
+        } else {
+            perror("Could not read from pipe");
+            return false;
+        }
+    }
+
+    return result;
 }
