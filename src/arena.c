@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
     #include <stddef.h>
@@ -38,6 +39,7 @@ struct TdoArenaNode {
 struct TdoArena {
     struct TdoArenaNode *first;
     struct TdoArenaNode *latest;
+    void const *last_allocation;
 };
 
 struct TdoArena *tdo_arena_init(size_t initial_capacity) {
@@ -138,6 +140,7 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
         char *allocation = tdo_buffer_alloc(node->current, node->end, total_bytes);
         if (allocation != NULL) {
             arena->latest = node;
+            arena->last_allocation = allocation;
             node->current = allocation + total_bytes;
             return allocation;
         }
@@ -178,5 +181,23 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
         abort();
     }
 
+    arena->last_allocation = allocation;
     return allocation;
+}
+
+bool tdo_arena_resize(struct TdoArena *arena, void *allocation, size_t type_size, size_t amount) {
+    if (arena->last_allocation != allocation) return false; // cannot resize allocation, not latest
+
+    if (amount > SIZE_MAX - type_size) return false; // size overflow
+    size_t total_bytes = type_size * amount;
+
+    char *same_allocation = tdo_buffer_alloc(allocation, arena->latest->end, total_bytes);
+    if (same_allocation == NULL) return false; // allocation does not fit in rest of node buffer
+
+    if (same_allocation != allocation) {
+        fprintf(stderr, "Resize operation realigned input pointer\n");
+        abort();
+    }
+
+    return true;
 }
