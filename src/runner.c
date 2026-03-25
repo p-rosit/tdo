@@ -1,5 +1,6 @@
 #include "string.c"
 #include "arguments.c"
+#include <stdio.h>
 
 int main(int argc, char **argv) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
@@ -16,6 +17,14 @@ int main(int argc, char **argv) {
         goto error_init_string_arena;
     }
 
+    FILE *input = fopen(args.test_file, "rb");
+    if (input == NULL) {
+        result = TDO_ERROR_FILE;
+        goto error_open_input;
+    }
+
+    fclose(input);
+    error_open_input:
     tdo_arena_deinit(string_arena);
     error_init_string_arena:
     tdo_arena_deinit(arena);
