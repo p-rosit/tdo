@@ -67,7 +67,7 @@ void tdo_arena_deinit(struct TdoArena *arena) {
     struct TdoArenaNode *node = arena->first->next;
     free(arena);
 
-    for (struct TdoArenaNode *next = node->next; node != NULL; node = next) {
+    for (struct TdoArenaNode *next = node; node != NULL; node = next) {
         next = node->next;
         free(node);
     }
