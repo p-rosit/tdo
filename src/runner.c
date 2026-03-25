@@ -12,11 +12,12 @@ int main(int argc, char **argv) {
     if (arena == NULL) return -1;
     struct TdoArena *string_arena = tdo_arena_init(4);
     if (string_arena == NULL) {
-        tdo_arena_deinit(arena);
-        return -1;
+        result = TDO_ERROR_MEMORY;
+        goto error_init_string_arena;
     }
 
     tdo_arena_deinit(string_arena);
+    error_init_string_arena:
     tdo_arena_deinit(arena);
     error_parse:
     return result;

@@ -6,6 +6,7 @@ enum TdoError {
     TDO_ERROR_UNKNOWN = -1,
     TDO_ERROR_ARG_FIRST = 1,
     TDO_ERROR_ARG_PARSE = 2,
+    TDO_ERROR_MEMORY = 3,
 };
 
 #endif
