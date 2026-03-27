@@ -55,6 +55,11 @@ bool tdo_string_append(struct TdoString *string, struct TdoArena *arena, size_t 
     return true;
 }
 
+bool tdo_string_clone(struct TdoString *copy, struct TdoArena *arena, struct TdoString string) {
+    *copy = tdo_string_init();
+    return tdo_string_append(copy, arena, string.length, string.bytes);
+}
+
 struct TdoLog {
     int fd;
     struct TdoString data;
