@@ -37,26 +37,41 @@ struct TdoArray tdo_array_init(void) {
     return (struct TdoArray) { .data = NULL, .length = 0, .capacity = 0 };
 }
 
-enum TdoError tdo_array_append(struct TdoArray *array, struct TdoArena *arena, size_t type_size, void *item) {
-    if (array->length > SIZE_MAX / type_size) return TDO_ERROR_MEMORY;
-    size_t byte_length = array->length * type_size;
+enum TdoError tdo_array_ensure_space(struct TdoArray *array, struct TdoArena *arena, size_t type_size, size_t additional_capacity) {
+    if (array->length > SIZE_MAX - additional_capacity) return TDO_ERROR_MEMORY; // array too large
+    size_t requested_capacity = array->length + additional_capacity;
 
-    if (array->capacity <= array->length) {
+    if (requested_capacity <= array->capacity) return TDO_ERROR_OK;
+
+    size_t new_capacity = array->capacity;
+    while (new_capacity < requested_capacity) {
         if (array->capacity > SIZE_MAX / 2) return TDO_ERROR_MEMORY;
-        size_t new_capacity = 2 * array->capacity;
+        new_capacity *= 2;
         if (new_capacity <= 0) new_capacity = 4;
-        
-        if (!tdo_arena_resize(arena, array->data, type_size, new_capacity)) {
-            char *new_array = tdo_arena_alloc(arena, type_size, new_capacity);
-            if (new_array == NULL) return TDO_ERROR_MEMORY;
-
-            if (array->data != NULL) memcpy(new_array, array->data, byte_length);
-            array->data = new_array;
-        }
-
-        array->capacity = new_capacity;
     }
 
+    if (!tdo_arena_resize(arena, array->data, type_size, new_capacity)) {
+        char *new_array = tdo_arena_alloc(arena, type_size, new_capacity);
+        if (new_array == NULL) return TDO_ERROR_MEMORY;
+
+        if (array->length > SIZE_MAX / type_size) return TDO_ERROR_MEMORY;
+        size_t byte_length = array->length * type_size;
+
+        if (array->data != NULL) memcpy(new_array, array->data, byte_length);
+        array->data = new_array;
+    }
+
+    array->capacity = new_capacity;
+
+    return TDO_ERROR_OK;
+}
+
+enum TdoError tdo_array_append(struct TdoArray *array, struct TdoArena *arena, size_t type_size, void *item) {
+    enum TdoError result = tdo_array_ensure_space(array, arena, type_size, 1);
+    if (result != TDO_ERROR_OK) return result;
+
+    if (array->length > SIZE_MAX / type_size) return TDO_ERROR_MEMORY;
+    size_t byte_length = array->length * type_size;
     memcpy((char*) array->data + byte_length, item, type_size);
     array->length += 1;
     return TDO_ERROR_OK;
