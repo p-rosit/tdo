@@ -8,6 +8,8 @@ enum TdoError {
     TDO_ERROR_ARG_PARSE = 2,
     TDO_ERROR_MEMORY = 3,
     TDO_ERROR_FILE = 4,
+    TDO_ERROR_INPUT = 5,
+    TDO_ERROR_EOF = 6,
 };
 
 #endif
