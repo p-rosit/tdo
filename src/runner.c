@@ -1,6 +1,7 @@
 #include "arguments.c"
 #include "test.c"
 #include <stdio.h>
+#include <dlfcn.h>
 
 int main(int argc, char **argv) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
@@ -28,6 +29,22 @@ int main(int argc, char **argv) {
     result = tdo_input_parse(arena, string_arena, args.test_file, input, &test_files, &tests);
     if (result != TDO_ERROR_OK) goto error_parse_input;
 
+    dlerror();
+    struct TdoFile *files = (struct TdoFile*) test_files.data;
+    for (size_t i = 0; i < test_files.length; i++) {
+        void *handle = dlopen(files[i].name.bytes, RTLD_NOW);
+        char const *error = dlerror();
+        if (error != NULL) {
+            fprintf(stderr, "%s\n", error);
+        } else {
+            files[i].dynamic_handle = handle;
+        }
+    }
+
+    for (size_t i = 0; i < test_files.length; i++) {
+        if (files[i].dynamic_handle == NULL) continue;
+        dlclose(files[i].dynamic_handle);
+    }
     error_parse_input:
     fclose(input);
     error_open_input:
