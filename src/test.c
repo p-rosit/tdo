@@ -80,7 +80,7 @@ enum TdoError tdo_read_line(struct TdoString *string, struct TdoArena *arena, FI
     return result;
 }
 
-enum TdoError tdo_test_parse_file(struct TdoString *file, struct TdoString *line) {
+enum TdoError tdo_test_parse_file(struct TdoString *file, struct TdoString *line, char const *file_name, size_t line_number) {
     *file = (struct TdoString) { .bytes = line->bytes, .length = 0 };
 
     bool delimiter_found = false;
@@ -103,18 +103,21 @@ enum TdoError tdo_test_parse_file(struct TdoString *file, struct TdoString *line
     }
 
     if (!delimiter_found) {
+        fprintf(stderr, "%s:%zu Did not find delimiter '::' in definition, found file '%.*s'\n", file_name, line_number, (int) file->length, file->bytes);
         return TDO_ERROR_EOF;
     }
 
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_name(struct TdoString *name, struct TdoString *line) {
+enum TdoError tdo_test_parse_name(struct TdoString *name, struct TdoString *line, char const *file_name, size_t line_number) {
     *name = (struct TdoString) { .bytes = line->bytes, .length = 0 };
 
     while (line->length > 0) {
         if (line->bytes[0] == ':') {
             if (line->length > 1 && line->bytes[1] == ':') {
+                name->length += 2;
+                fprintf(stderr, "%s:%zu: Found unexpected delimiter '::' in name '%.*s'\n", file_name, line_number, (int) name->length, name->bytes);
                 return TDO_ERROR_EOF; // unexpected delimiter
             }
         }
@@ -130,13 +133,13 @@ enum TdoError tdo_test_parse_name(struct TdoString *name, struct TdoString *line
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_symbol(struct TdoString *line, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoSymbol *symbol, struct TdoArray *test_files) {
+enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoSymbol *symbol, struct TdoArray *test_files) {
     struct TdoString file_name;
-    enum TdoError result = tdo_test_parse_file(&file_name, line);
+    enum TdoError result = tdo_test_parse_file(&file_name, line, input_file_name, line_number);
     if (result != TDO_ERROR_OK) return result;
 
     struct TdoString name;
-    result = tdo_test_parse_name(&name, line);
+    result = tdo_test_parse_name(&name, line, input_file_name, line_number);
     if (result != TDO_ERROR_OK) return result;
 
     struct TdoFile *file = NULL;
@@ -168,14 +171,19 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, struct TdoArena *are
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_test( struct TdoString *line, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest **test, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest **test, struct TdoArray *test_files, struct TdoArray *tests) {
     int c;
-    while (isspace(c = line->bytes[0])) {
+    while (line->length > 0 && isspace(c = line->bytes[0])) {
         line->length -= 1;
         line->bytes += 1;
     }
+    if (line->length == 0) return TDO_ERROR_EOF;
 
-    if (strncmp(line->bytes, "test::", 6) != 0) return TDO_ERROR_EOF;
+    if (strncmp(line->bytes, "test::", 6) != 0) {
+        size_t prefix = line->length > 6 ? 6 : line->length;
+        fprintf(stderr, "%s:%zu Expected test symbol to start with 'test::', got '%.*s'\n", file_name, line_number, (int) prefix, line->bytes);
+        return TDO_ERROR_EOF;
+    }
     line->bytes += 6;
     line->length -= 6;
     
@@ -186,7 +194,7 @@ enum TdoError tdo_test_parse_test( struct TdoString *line, struct TdoArena *aren
         },
         .fixtures = tdo_array_init(),
     };
-    enum TdoError result = tdo_test_parse_symbol(line, arena, string_arena, &t.symbol, test_files);
+    enum TdoError result = tdo_test_parse_symbol(line, file_name, line_number, arena, string_arena, &t.symbol, test_files);
     if (result != TDO_ERROR_OK) return result;
 
     result = tdo_array_append(tests, arena, sizeof(struct TdoTest), &t);
@@ -196,7 +204,7 @@ enum TdoError tdo_test_parse_test( struct TdoString *line, struct TdoArena *aren
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_fixture(struct TdoString *line, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files) {
+enum TdoError tdo_test_parse_fixture(struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files) {
     int c;
     while (isspace(c = line->bytes[0])) {
         line->length -= 1;
@@ -213,18 +221,19 @@ enum TdoError tdo_test_parse_fixture(struct TdoString *line, struct TdoArena *ar
         line->bytes += 7;
         line->length -= 7;
     } else {
+        fprintf(stderr, "%s:%zu Expected fixture symbol to start with 'before::' or 'after::'\n", file_name, line_number);
         return TDO_ERROR_EOF;
     }
 
     struct TdoSymbol symbol;
-    enum TdoError result = tdo_test_parse_symbol(line, arena, string_arena, &symbol, test_files);
+    enum TdoError result = tdo_test_parse_symbol(line, file_name, line_number, arena, string_arena, &symbol, test_files);
     if (result != TDO_ERROR_OK) return result;
 
     struct TdoFixture fixture = { .kind = kind, .symbol = symbol };
     return tdo_array_append(&test->fixtures, arena, sizeof(struct TdoFixture), &fixture);
 }
 
-enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, FILE *input_file, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, char const *file_name, FILE *input_file, struct TdoArray *test_files, struct TdoArray *tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct {
         struct TdoArray test_files;
@@ -242,8 +251,9 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
     if (temp_arena == NULL) return TDO_ERROR_MEMORY;
 
     int c;
-    size_t line_number = 1;
+    size_t line_number = 0;
     while (true) {
+        line_number += 1;
         tdo_arena_state_clear(temp_arena);
 
         struct TdoString line;
@@ -252,7 +262,7 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         else if (result != TDO_ERROR_OK) goto error;
 
         struct TdoTest *test;
-        result = tdo_test_parse_test(&line, arena, string_arena, &test, test_files, tests);
+        result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files, tests);
         if (result == TDO_ERROR_EOF) {
             continue;
         } else if (result != TDO_ERROR_OK) {
@@ -260,7 +270,7 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         }
 
         while (line.length > 0) {
-            result = tdo_test_parse_fixture(&line, arena, string_arena, test, test_files);
+            result = tdo_test_parse_fixture(&line, file_name, line_number, arena, string_arena, test, test_files);
             if (result == TDO_ERROR_EOF) {
                 continue;
             } else if (result != TDO_ERROR_OK) {

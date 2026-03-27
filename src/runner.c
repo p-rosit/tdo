@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 
     struct TdoArray test_files = tdo_array_init();
     struct TdoArray tests = tdo_array_init();
-    result = tdo_input_parse(arena, string_arena, input, &test_files, &tests);
+    result = tdo_input_parse(arena, string_arena, args.test_file, input, &test_files, &tests);
     if (result != TDO_ERROR_OK) goto error_parse_input;
 
     error_parse_input:
