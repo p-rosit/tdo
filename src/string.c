@@ -40,8 +40,7 @@ bool tdo_string_append(struct TdoString *string, struct TdoArena *arena, size_t 
     }
     allocation_length += length;
 
-    bool success = tdo_arena_resize(arena, string->bytes, sizeof(char), allocation_length);
-    if (!success) {
+    if (!tdo_arena_resize(arena, string->bytes, sizeof(char), allocation_length)) {
         char *bytes = tdo_arena_alloc(arena, sizeof(char), allocation_length);
         if (bytes == NULL) return false;
 
