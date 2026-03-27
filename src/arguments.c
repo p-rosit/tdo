@@ -52,6 +52,9 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 } else if (*err != '\0') {
                     fprintf(stderr, "Could not parse amount of threads: '%s'\n", s + 2);
                     result = TDO_ERROR_ARG_PARSE;
+                } else if (threads == 0) {
+                    fprintf(stderr, "Amount of processes must be strictly positive, got zero\n");
+                    result = TDO_ERROR_ARG_PARSE;
                 } else {
                     args->processes = (size_t) threads;
                 }
