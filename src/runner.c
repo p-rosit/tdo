@@ -1,5 +1,4 @@
-#include "arguments.c"
-#include "test.c"
+#include "run.c"
 #include <stdio.h>
 #include <dlfcn.h>
 
@@ -40,6 +39,8 @@ int main(int argc, char **argv) {
             files[i].dynamic_handle = handle;
         }
     }
+
+    result = tdo_run_all(args, arena, tests);
 
     for (size_t i = 0; i < test_files.length; i++) {
         if (files[i].dynamic_handle == NULL) continue;
