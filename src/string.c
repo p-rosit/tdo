@@ -77,7 +77,8 @@ struct TdoLog tdo_log_init(int fd) {
     };
 }
 
-void tdo_log_reset(struct TdoLog *log) {
+void tdo_log_reset(struct TdoLog *log, int fd) {
+    log->fd = fd;
     log->data.length = 0;
 }
 
