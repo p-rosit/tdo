@@ -10,9 +10,14 @@ int main(int argc, char **argv) {
     if (result != TDO_ERROR_OK) goto error_parse_args;
 
     struct TdoArena *arena = tdo_arena_init(1024);
-    if (arena == NULL) return -1;
+    if (arena == NULL) {
+        fprintf(stderr, "Could not initialize arena\n");
+        result = TDO_ERROR_MEMORY;
+        goto error_init_arena;
+    }
     struct TdoArena *string_arena = tdo_arena_init(4);
     if (string_arena == NULL) {
+        fprintf(stderr, "Could not initialize string arena\n");
         result = TDO_ERROR_MEMORY;
         goto error_init_string_arena;
     }
@@ -69,6 +74,7 @@ int main(int argc, char **argv) {
     tdo_arena_deinit(string_arena);
     error_init_string_arena:
     tdo_arena_deinit(arena);
+    error_init_arena:
     error_parse_args:
     return result;
 }
