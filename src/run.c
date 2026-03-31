@@ -44,77 +44,77 @@ size_t tdo_run_assemble_active_fds(struct pollfd *fds, size_t *fd_to_idx, size_t
     return fd_count;
 }
 
-void tdo_json_escaped(struct TdoString string) {
+void tdo_json_escaped(FILE *file, struct TdoString string) {
     for (size_t i = 0; i < string.length; i++) {
         switch (string.bytes[i]) {
-            case '\"': fputs("\\\"", stdout); break;
-            case '\\': fputs("\\\\", stdout); break;
-            case '\n': fputs("\\n", stdout); break;
-            case '\r': fputs("\\r", stdout); break;
-            default: fputc(string.bytes[i], stdout); break;
+            case '\"': fputs("\\\"", file); break;
+            case '\\': fputs("\\\\", file); break;
+            case '\n': fputs("\\n", file); break;
+            case '\r': fputs("\\r", file); break;
+            default: fputc(string.bytes[i], file); break;
         }
     }
 }
 
-void tdo_log_dump(struct TdoLog log, char const *name) {
-    fprintf(stdout, ",\n\t\t\"%s\": \"", name);
-    tdo_json_escaped(log.data);
-    fprintf(stdout, "\"");
+void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
+    fprintf(file, ",\n\t\t\"%s\": \"", name);
+    tdo_json_escaped(file, log.data);
+    fprintf(file, "\"");
 }
 
-void tdo_run_report_exit(struct TdoRun run, int status) {
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\t{\n");
+void tdo_run_report_exit(struct TdoRun run, FILE *file, int status) {
+    fprintf(file, "\n");
+    fprintf(file, "\t{\n");
 
-    fprintf(stdout, "\t\t\"file\": \"");
-    tdo_json_escaped(run.test->symbol.file->name);
-    fprintf(stdout, "\",\n");
+    fprintf(file, "\t\t\"file\": \"");
+    tdo_json_escaped(file, run.test->symbol.file->name);
+    fprintf(file, "\",\n");
 
-    fprintf(stdout, "\t\t\"name\": \"");
-    tdo_json_escaped(run.test->symbol.name);
-    fprintf(stdout, "\",\n");
+    fprintf(file, "\t\t\"name\": \"");
+    tdo_json_escaped(file, run.test->symbol.name);
+    fprintf(file, "\",\n");
 
-    fprintf(stdout, "\t\t\"status\": \"");
+    fprintf(file, "\t\t\"status\": \"");
     if (WIFEXITED(status)) {
-        fprintf(stdout, "exit");
+        fprintf(file, "exit");
     } else if (WIFSIGNALED(status)) {
-        fprintf(stdout, "signal");
+        fprintf(file, "signal");
     } else if (WIFSTOPPED(status)) {
-        fprintf(stdout, "stop");
+        fprintf(file, "stop");
     }
-    fprintf(stdout, "\",\n");
+    fprintf(file, "\",\n");
 
     if (WIFEXITED(status)) {
-        fprintf(stdout, "\t\t\"exit\": %d", WEXITSTATUS(status));
+        fprintf(file, "\t\t\"exit\": %d", WEXITSTATUS(status));
     } else if (WIFSIGNALED(status)) {
-        fprintf(stdout, "\t\t\"signal\": %d", WTERMSIG(status));
+        fprintf(file, "\t\t\"signal\": %d", WTERMSIG(status));
     } else if (WIFSTOPPED(status)) {
-        fprintf(stdout, "\t\t\"stop\": %d", WSTOPSIG(status));
+        fprintf(file, "\t\t\"stop\": %d", WSTOPSIG(status));
     }
 
-    tdo_log_dump(run.out, "stdout");
-    tdo_log_dump(run.err, "stderr");
-    tdo_log_dump(run.status, "status");
+    tdo_log_dump(run.out, file, "file");
+    tdo_log_dump(run.err, file, "stderr");
+    tdo_log_dump(run.status, file, "status");
 
-    fprintf(stdout, "\n\t}");
+    fprintf(file, "\n\t}");
 }
 
-void tdo_run_report_error(struct TdoTest test, char const *error) {
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\t{\n");
+void tdo_run_report_error(struct TdoTest test, FILE *file, char const *error) {
+    fprintf(file, "\n");
+    fprintf(file, "\t{\n");
 
-    fprintf(stdout, "\t\t\"file\": \"");
-    tdo_json_escaped(test.symbol.file->name);
-    fprintf(stdout, "\",\n");
+    fprintf(file, "\t\t\"file\": \"");
+    tdo_json_escaped(file, test.symbol.file->name);
+    fprintf(file, "\",\n");
 
-    fprintf(stdout, "\t\t\"name\": \"");
-    tdo_json_escaped(test.symbol.name);
-    fprintf(stdout, "\",\n");
+    fprintf(file, "\t\t\"name\": \"");
+    tdo_json_escaped(file, test.symbol.name);
+    fprintf(file, "\",\n");
 
-    fprintf(stdout, "\t\t\"status\": \"error\",\n");
-    fprintf(stdout, "\t\t\"error\": \"%s\"\n", error);
+    fprintf(file, "\t\t\"status\": \"error\",\n");
+    fprintf(file, "\t\t\"error\": \"%s\"\n", error);
 
-    fprintf(stdout, "\n\t}");
+    fprintf(file, "\n\t}");
 }
 
 struct TdoRunStatus {
@@ -128,7 +128,7 @@ struct TdoRunStatus {
     bool log_setup_failed;
 };
 
-enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, struct TdoArray tests) {
+enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
     fprintf(stderr, "Running %zu tests\n", tests.length);
@@ -173,11 +173,11 @@ enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, stru
         };
     }
 
-    fprintf(stdout, "[");
+    fprintf(output, "[");
 
     while (status.finished < tests.length) {
         while (status.running < args.processes && status.started < tests.length && !status.fork_failed && !status.log_setup_failed) {
-            fflush(stdout);
+            fflush(output);
             fflush(stderr); // normally unbuffered, but it could be buffered
 
             struct TdoTest *test = &((struct TdoTest*) tests.data)[status.started];
@@ -361,8 +361,8 @@ enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, stru
                     if (err != TDO_ERROR_OK) {
                         run->active = false;
                         status.running -= 1;
-                        if (status.finished > 0) fprintf(stdout, ",");
-                        tdo_run_report_error(*run->test, "could not read output");
+                        if (status.finished > 0) fprintf(output, ",");
+                        tdo_run_report_error(*run->test, output, "could not read output");
                         status.finished += 1;
                     }
                 }
@@ -373,15 +373,15 @@ enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, stru
             for (size_t i = 0; i < args.processes; i++) {
                 struct TdoRun *run = &status.runs[i];
                 if (run->active) {
-                    tdo_run_report_error(*run->test, "could not poll pipes");
+                    tdo_run_report_error(*run->test, output, "could not poll pipes");
                     status.finished += 1;
                 }
             }
 
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
-                if (status.finished > 0) fprintf(stdout, ",");
-                tdo_run_report_error(ts[i], "could not poll pipes");
+                if (status.finished > 0) fprintf(output, ",");
+                tdo_run_report_error(ts[i], output, "could not poll pipes");
                 status.finished += 1;
             }
             break;
@@ -396,11 +396,11 @@ enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, stru
                     enum TdoError err_err = tdo_log_drain(&run->err, arena);
                     enum TdoError status_err = tdo_log_drain(&run->status, arena);
 
-                    if (status.finished > 0) fprintf(stdout, ",");
+                    if (status.finished > 0) fprintf(output, ",");
                     if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-                        tdo_run_report_exit(*run, return_status);
+                        tdo_run_report_exit(*run, output, return_status);
                     } else {
-                        tdo_run_report_error(*run->test, "could not read output");
+                        tdo_run_report_error(*run->test, output, "could not read output");
                     }
 
                     run->active = false;
@@ -416,21 +416,21 @@ enum TdoError tdo_run_all(struct TdoArguments args, struct TdoArena *arena, stru
         if (status.running == 0 && status.fork_failed) {
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
-                if (status.finished > 0) fprintf(stdout, ",");
-                tdo_run_report_error(ts[i], "could not fork process");
+                if (status.finished > 0) fprintf(output, ",");
+                tdo_run_report_error(ts[i], output, "could not fork process");
                 status.finished += 1;
             }
         } else if (status.running == 0 && status.log_setup_failed) {
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
-                if (status.finished > 0) fprintf(stdout, ",");
-                tdo_run_report_error(ts[i], "could not setup log redirection");
+                if (status.finished > 0) fprintf(output, ",");
+                tdo_run_report_error(ts[i], output, "could not setup log redirection");
                 status.finished += 1;
             }
         }
     }
 
-    fprintf(stdout, "\n]\n");
+    fprintf(output, "\n]\n");
     result = TDO_ERROR_OK;
 
     error_setup:

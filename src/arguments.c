@@ -11,6 +11,7 @@ struct TdoArguments {
     size_t processes;
     bool debug_one;
     char const *test_file;
+    char const *output;
 };
 
 enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **argv) {
@@ -19,6 +20,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         .processes = 1,
         .debug_one = false,
         .test_file = NULL,
+        .output = NULL,
     };
 
     if (argc < 1) return TDO_ERROR_ARG_FIRST;
@@ -57,6 +59,14 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     result = TDO_ERROR_ARG_PARSE;
                 } else {
                     args->processes = (size_t) threads;
+                }
+            } else if (strncmp(s, "-o", 3) == 0) {
+                if (argc <= 1) {
+                    fprintf(stderr, "Missing output file argument to '-o'\n");
+                    result = TDO_ERROR_ARG_PARSE;
+                } else {
+                    argc -= 1; argv += 1;
+                    args->output = argv[0];
                 }
             } else {
                 fprintf(stderr, "Unrecognized argument: '%s'\n", s);

@@ -23,6 +23,21 @@ int main(int argc, char **argv) {
         goto error_open_input;
     }
 
+    FILE *output = stdout;
+    if (args.output != NULL) {
+        errno = 0;
+        output = fopen(args.output, "wb");
+        if (errno != 0) {
+            perror("Could not open output");
+            result = TDO_ERROR_FILE;
+            goto error_open_output;
+        } else if (output == NULL) {
+            fprintf(stderr, "Could not open output file, unknown error\n");
+            result = TDO_ERROR_FILE;
+            goto error_open_output;
+        }
+    }
+
     struct TdoArray test_files = tdo_array_init();
     struct TdoArray tests = tdo_array_init();
     result = tdo_input_parse(arena, string_arena, args.test_file, input, &test_files, &tests);
@@ -40,13 +55,15 @@ int main(int argc, char **argv) {
         }
     }
 
-    result = tdo_run_all(args, arena, tests);
+    result = tdo_run_all(args, output, arena, tests);
 
     for (size_t i = 0; i < test_files.length; i++) {
         if (files[i].dynamic_handle == NULL) continue;
         dlclose(files[i].dynamic_handle);
     }
     error_parse_input:
+    if (output != stdout) fclose(output);
+    error_open_output:
     fclose(input);
     error_open_input:
     tdo_arena_deinit(string_arena);
