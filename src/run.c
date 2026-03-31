@@ -224,6 +224,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 case 0:
                     // child
 
+                    // close output file
+                    if (output != stdout) fclose(output);
+
                     // close all pipe fds inherited from parent's other active runs
                     for (size_t i = 0; i < args.processes; i++) {
                         if (status.runs[i].active) {
