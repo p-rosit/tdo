@@ -22,8 +22,14 @@ int main(int argc, char **argv) {
         goto error_init_string_arena;
     }
 
+    errno = 0;
     FILE *input = fopen(args.test_file, "rb");
-    if (input == NULL) {
+    if (errno != 0) {
+        perror("Could not open input");
+        result = TDO_ERROR_FILE;
+        goto error_open_input;
+    } else if (input == NULL) {
+        fprintf(stderr, "Could not open input file, unknown error\n");
         result = TDO_ERROR_FILE;
         goto error_open_input;
     }
