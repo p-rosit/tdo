@@ -128,6 +128,86 @@ struct TdoRunStatus {
     bool log_setup_failed;
 };
 
+void tdo_run_single(struct TdoTest *test, int status_fd) {
+    char status_buffer[64]; // must fit "b_18446744073709551615"
+
+    dlerror(); // clear old errors for good luck
+
+    // run before fixtures
+    struct TdoFixture *fixtures = test->fixtures.data;
+    for (size_t i = 0, index = 0; i < test->fixtures.length; i++) {
+        struct TdoFixture fixture = fixtures[i];
+        if (fixture.kind == TDO_FIXTURE_BEFORE) {
+            int length = snprintf(status_buffer, sizeof(status_buffer), "b_%zu\n", index++);
+            if (length < 0) {
+                write(status_fd, "Could not format status string\n", 31);
+                abort();
+            } if (length >= sizeof(status_buffer)) {
+                write(status_fd, "Could not format status string, result too long\n", 48);
+                abort();
+            }
+            write(status_fd, status_buffer, length);
+
+            void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
+            char const *err = dlerror();
+            if (err != NULL) {
+                write(status_fd, "eCould not load before fixture: ", 32);
+                write(status_fd, err, strlen(err));
+                write(status_fd, "\n", 1);
+                abort();
+            } else if (fix == NULL) {
+                write(status_fd, "eSymbol is null\n", 16);
+                abort();
+            }
+            fix();
+        }
+    }
+
+    // do the test
+    write(status_fd, "test\n", 5);
+    void (*t)(void) = (void (*)(void))dlsym(test->symbol.file->dynamic_handle, test->symbol.name.bytes);
+    char const *err = dlerror();
+    if (err != NULL) {
+        write(status_fd, "eCould not load test: ", 22);
+        write(status_fd, err, strlen(err));
+        write(status_fd, "\n", 1);
+        abort();
+    } else if (t == NULL) {
+        write(status_fd, "eSymbol is null\n", 16);
+        abort();
+    }
+    t();
+
+    // run after fixtures
+    for (size_t i = 0, index = 0; i < test->fixtures.length; i++) {
+        struct TdoFixture fixture = fixtures[i];
+        if (fixture.kind == TDO_FIXTURE_AFTER) {
+            int length = snprintf(status_buffer, sizeof(status_buffer), "a_%zu\n", index++);
+            if (length < 0) {
+                write(status_fd, "Could not format status string\n", 31);
+                abort();
+            } if (length >= sizeof(status_buffer)) {
+                write(status_fd, "Could not format status string, result too long\n", 48);
+                abort();
+            }
+            write(status_fd, status_buffer, length);
+
+            void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
+            char const *err = dlerror();
+            if (err != NULL) {
+                write(status_fd, "eCould not load after fixture: ", 31);
+                write(status_fd, err, strlen(err));
+                write(status_fd, "\n", 1);
+                abort();
+            } else if (fix == NULL) {
+                write(status_fd, "eSymbol is null\n", 16);
+                abort();
+            }
+            fix();
+        }
+    }
+}
+
 enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
@@ -244,85 +324,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                     dup2(p_out[1], STDOUT_FILENO);
                     dup2(p_err[1], STDERR_FILENO);
 
-                    char status_buffer[64]; // must fit "b_18446744073709551615"
-
-                    dlerror(); // clear old errors for good luck
-
-                    // run before fixtures
-                    struct TdoFixture *fixtures = test->fixtures.data;
-                    for (size_t i = 0, index = 0; i < test->fixtures.length; i++) {
-                        struct TdoFixture fixture = fixtures[i];
-                        if (fixture.kind == TDO_FIXTURE_BEFORE) {
-                            int length = snprintf(status_buffer, sizeof(status_buffer), "b_%zu\n", index++);
-                            if (length < 0) {
-                                write(p_status[1], "Could not format status string\n", 31);
-                                abort();
-                            } if (length >= sizeof(status_buffer)) {
-                                write(p_status[1], "Could not format status string, result too long\n", 48);
-                                abort();
-                            }
-                            write(p_status[1], status_buffer, length);
-
-                            void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
-                            char const *err = dlerror();
-                            if (err != NULL) {
-                                write(p_status[1], "eCould not load before fixture: ", 32);
-                                write(p_status[1], err, strlen(err));
-                                write(p_status[1], "\n", 1);
-                                abort();
-                            } else if (fix == NULL) {
-                                write(p_status[1], "eSymbol is null\n", 16);
-                                abort();
-                            }
-                            fix();
-                        }
-                    }
-
-                    // do the test
-                    write(p_status[1], "test\n", 5);
-                    void (*t)(void) = (void (*)(void))dlsym(test->symbol.file->dynamic_handle, test->symbol.name.bytes);
-                    char const *err = dlerror();
-                    if (err != NULL) {
-                        write(p_status[1], "eCould not load test: ", 22);
-                        write(p_status[1], err, strlen(err));
-                        write(p_status[1], "\n", 1);
-                        abort();
-                    } else if (t == NULL) {
-                        write(p_status[1], "eSymbol is null\n", 16);
-                        abort();
-                    }
-                    t();
-
-                    // run after fixtures
-                    for (size_t i = 0, index = 0; i < test->fixtures.length; i++) {
-                        struct TdoFixture fixture = fixtures[i];
-                        if (fixture.kind == TDO_FIXTURE_AFTER) {
-                            int length = snprintf(status_buffer, sizeof(status_buffer), "a_%zu\n", index++);
-                            if (length < 0) {
-                                write(p_status[1], "Could not format status string\n", 31);
-                                abort();
-                            } if (length >= sizeof(status_buffer)) {
-                                write(p_status[1], "Could not format status string, result too long\n", 48);
-                                abort();
-                            }
-                            write(p_status[1], status_buffer, length);
-
-                            void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
-                            char const *err = dlerror();
-                            if (err != NULL) {
-                                write(p_status[1], "eCould not load after fixture: ", 31);
-                                write(p_status[1], err, strlen(err));
-                                write(p_status[1], "\n", 1);
-                                abort();
-                            } else if (fix == NULL) {
-                                write(p_status[1], "eSymbol is null\n", 16);
-                                abort();
-                            }
-                            fix();
-                        }
-                    }
-
-                    write(p_status[1], "finished\n", 9);
+                    tdo_run_single(test, p_status[1]);
 
                     // flush buffers
                     fflush(stdout);
