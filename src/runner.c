@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
         result = TDO_ERROR_MEMORY;
         goto error_init_arena;
     }
-    struct TdoArena *string_arena = tdo_arena_init(4);
+    struct TdoArena *string_arena = tdo_arena_init(1024);
     if (string_arena == NULL) {
         fprintf(stderr, "Could not initialize string arena\n");
         result = TDO_ERROR_MEMORY;
