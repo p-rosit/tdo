@@ -1,6 +1,8 @@
+#define _XOPEN_SOURCE 600
 #include "run.c"
 #include <stdio.h>
 #include <dlfcn.h>
+#include <sys/stat.h>
 
 int main(int argc, char **argv) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
@@ -37,13 +39,27 @@ int main(int argc, char **argv) {
     FILE *output = stdout;
     if (args.output != NULL) {
         errno = 0;
-        output = fopen(args.output, "wb");
+        int output_fd = open(args.output, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
         if (errno != 0) {
             perror("Could not open output");
             result = TDO_ERROR_FILE;
             goto error_open_output;
-        } else if (output == NULL) {
+        } else if (output_fd == -1) {
             fprintf(stderr, "Could not open output file, unknown error\n");
+            result = TDO_ERROR_FILE;
+            goto error_open_output;
+        }
+
+        errno = 0;
+        output = fdopen(output_fd, "wb");
+        if (errno != 0) {
+            close(output_fd);
+            perror("Could not create output file from file descriptor");
+            result = TDO_ERROR_FILE;
+            goto error_open_output;
+        } else if (output == NULL) {
+            close(output_fd);
+            fprintf(stderr, "Could not create output file from file descriptor, unknown error\n");
             result = TDO_ERROR_FILE;
             goto error_open_output;
         }
