@@ -1,3 +1,4 @@
+#include "error.h"
 #include "arena.c"
 #include <errno.h>
 #include <stdbool.h>
@@ -82,26 +83,24 @@ void tdo_log_reset(struct TdoLog *log, int fd) {
     log->data.length = 0;
 }
 
-bool tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
-    bool result = true;
-
+enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
     char buffer[1024];
     while (true) {
         errno = 0;
         ssize_t bytes_read = read(log->fd, buffer, sizeof(buffer));
 
         if (bytes_read > 0) {
-            result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
-            if (!result) return false;
+            bool result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
+            if (!result) return TDO_ERROR_MEMORY;
         } else if (bytes_read == 0) {
             break;
         } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
             break;
         } else {
             perror("Could not read from pipe");
-            return false;
+            return TDO_ERROR_PIPE;
         }
     }
 
-    return result;
+    return TDO_ERROR_OK;
 }

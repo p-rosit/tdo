@@ -10,6 +10,7 @@ enum TdoError {
     TDO_ERROR_FILE = 4,
     TDO_ERROR_INPUT = 5,
     TDO_ERROR_EOF = 6,
+    TDO_ERROR_PIPE = 7,
 };
 
 #endif
