@@ -54,3 +54,29 @@ def test_aborts(library: str, run_tests: Callable[[str], Tuple[list, str]]):
         stdout='',
         stderr='',
     )]
+
+
+def test_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(
+        f'test::{library}::test_success_with_other_stdout '
+        f'before::{library}::test_success_with_stdout'
+    )
+    assert result == [ResultComplete(
+        file=library,
+        name='test_success_with_other_stdout',
+        stdout='Printed\nother\n',
+        stderr='',
+    )]
+
+
+def test_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(
+        f'test::{library}::test_success_with_other_stdout '
+        f'after::{library}::test_success_with_stdout'
+    )
+    assert result == [ResultComplete(
+        file=library,
+        name='test_success_with_other_stdout',
+        stdout='other\nPrinted\n',
+        stderr='',
+    )]

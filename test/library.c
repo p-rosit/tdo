@@ -8,6 +8,10 @@ void test_success_with_stdout(void) {
     fprintf(stdout, "Printed\n");
 }
 
+void test_success_with_other_stdout(void) {
+    fprintf(stdout, "other\n");
+}
+
 void test_success_with_stderr(void) {
     fprintf(stderr, "Other thing\n");
 }
