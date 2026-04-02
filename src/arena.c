@@ -109,7 +109,7 @@ void tdo_arena_state_set(struct TdoArena *arena, struct TdoArenaState state) {
             break;
         }
 
-        node->current = (char*) node + sizeof(struct TdoArenaNode);
+        node->current = node->end;
     }
 
     tdo_arena_state_clear(&(struct TdoArena) { .first = node, .latest = NULL });
