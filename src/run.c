@@ -123,9 +123,9 @@ void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, cha
 
     fprintf(file, "\t\t\"step\": ");
     if (step != NULL) {
-        fprintf(file, "\"%s\",\n", step);
+        fprintf(file, "\"%s\"\n", step);
     } else {
-        fprintf(file, "null,\n");
+        fprintf(file, "null\n");
     }
 
     fprintf(file, "\t}");
