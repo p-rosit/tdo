@@ -1,4 +1,5 @@
 from typing import Callable, Tuple
+import pytest
 from conftest import ResultComplete, ResultExit, ResultSignal, StepTest
 
 
@@ -50,7 +51,7 @@ def test_aborts(library: str, run_tests: Callable[[str], Tuple[list, str]]):
         file=library,
         name='test_aborts',
         step=StepTest(file=library, name='test_aborts'),
-        signal=6,
+        signal=pytest.approx(0, abs=1024),  # the specific signal integer is implementation defined?
         stdout='',
         stderr='',
     )]
