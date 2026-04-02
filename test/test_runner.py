@@ -97,3 +97,56 @@ def test_fixture_multiple(library: str, run_tests: Callable[[str], Tuple[list, s
         stdout='Printed\nPrinted\nother\nPrinted\nPrinted\n',
         stderr='',
     )]
+
+
+def test_all(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_aborts
+        test::{library}::test_success_with_stdout
+        test::{library}::test_early_exit
+        test::{library}::test_success_with_other_stdout
+        test::{library}::test_success_with_stderr
+    """)
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            stdout='',
+            stderr='',
+        ),
+        ResultSignal(
+            file=library,
+            name='test_aborts',
+            step=StepTest(file=library, name='test_aborts'),
+            signal=pytest.approx(0, abs=1024),
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_stdout',
+            stdout='Printed\n',
+            stderr='',
+        ),
+        ResultExit(
+            file=library,
+            name='test_early_exit',
+            step=StepTest(file=library, name='test_early_exit'),
+            exit=4,
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_other_stdout',
+            stdout='other\n',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_stderr',
+            stdout='',
+            stderr='Other thing\n',
+        ),
+    ]
