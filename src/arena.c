@@ -181,7 +181,7 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
         fprintf(stderr, "Arena grew but was still not able to fit allocation\n");
         abort();
     }
-    arena->latest->current = allocation + total_bytes;
+    arena->latest->current = (char*) allocation + total_bytes;
 
     arena->last_allocation = allocation;
     return allocation;
