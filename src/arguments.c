@@ -77,10 +77,5 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         argc -= 1; argv += 1;
     }
 
-    if (args->test_file == NULL) {
-        fprintf(stderr, "Missing positional argument: test file\n");
-        result = TDO_ERROR_ARG_PARSE;
-    }
-
     return result;
 }

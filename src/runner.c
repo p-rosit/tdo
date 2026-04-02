@@ -24,16 +24,21 @@ int main(int argc, char **argv) {
         goto error_init_string_arena;
     }
 
-    errno = 0;
-    FILE *input = fopen(args.test_file, "rb");
-    if (errno != 0) {
-        perror("Could not open input");
-        result = TDO_ERROR_FILE;
-        goto error_open_input;
-    } else if (input == NULL) {
-        fprintf(stderr, "Could not open input file, unknown error\n");
-        result = TDO_ERROR_FILE;
-        goto error_open_input;
+    FILE *input = stdin;
+    if (args.test_file != NULL) {
+        errno = 0;
+        input = fopen(args.test_file, "rb");
+        if (errno != 0) {
+            perror("Could not open input");
+            result = TDO_ERROR_FILE;
+            goto error_open_input;
+        } else if (input == NULL) {
+            fprintf(stderr, "Could not open input file, unknown error\n");
+            result = TDO_ERROR_FILE;
+            goto error_open_input;
+        }
+    } else {
+        fprintf(stderr, "Reading tests from stdin:\n");
     }
 
     FILE *output = stdout;
@@ -67,7 +72,7 @@ int main(int argc, char **argv) {
 
     struct TdoArray test_files = tdo_array_init();
     struct TdoArray tests = tdo_array_init();
-    result = tdo_input_parse(arena, string_arena, args.test_file, input, &test_files, &tests);
+    result = tdo_input_parse(arena, string_arena, args.test_file != NULL ? args.test_file : "<stdin>", input, &test_files, &tests);
     if (result != TDO_ERROR_OK) goto error_parse_input;
 
     dlerror();
