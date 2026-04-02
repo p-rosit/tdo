@@ -80,3 +80,19 @@ def test_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]
         stdout='other\nPrinted\n',
         stderr='',
     )]
+
+
+def test_fixture_multiple(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(
+        f'test::{library}::test_success_with_other_stdout '
+        f'before::{library}::test_success_with_stdout '
+        f'after::{library}::test_success_with_stdout '
+        f'before::{library}::test_success_with_stdout '
+        f'after::{library}::test_success_with_stdout '
+    )
+    assert result == [ResultComplete(
+        file=library,
+        name='test_success_with_other_stdout',
+        stdout='Printed\nPrinted\nother\nPrinted\nPrinted\n',
+        stderr='',
+    )]
