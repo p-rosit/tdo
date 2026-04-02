@@ -105,6 +105,7 @@ void tdo_arena_state_set(struct TdoArena *arena, struct TdoArenaState state) {
             }
 
             node->current = state.current;
+            node = node->next;
             break;
         }
 
