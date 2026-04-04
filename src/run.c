@@ -8,12 +8,14 @@
 #include <poll.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 
 struct TdoRun {
     struct TdoTest *test;
     struct TdoLog out;
     struct TdoLog err;
     struct TdoLog status;
+    struct timespec start_time;
     pid_t pid;
     bool active;
 };
@@ -62,7 +64,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
     fprintf(file, "\"");
 }
 
-void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int status) {
+void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int status, double duration) {
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -73,6 +75,8 @@ void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int st
     fprintf(file, "\t\t\"name\": \"");
     tdo_json_escaped(file, run.test->symbol.name);
     fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
 
     fprintf(file, "\t\t\"status\": \"");
     if (WIFEXITED(status)) {
@@ -106,7 +110,7 @@ void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int st
     fprintf(file, "\n\t}");
 }
 
-void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error) {
+void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -117,6 +121,8 @@ void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, cha
     fprintf(file, "\t\t\"name\": \"");
     tdo_json_escaped(file, test.symbol.name);
     fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
 
     fprintf(file, "\t\t\"status\": \"error\",\n");
     fprintf(file, "\t\t\"error\": \"%s\",\n", error);
@@ -214,25 +220,25 @@ enum TdoError tdo_run_report_assemble_step(struct TdoString *step, struct TdoAre
     return TDO_ERROR_OK;
 }
 
-void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file, int status) {
+void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file, int status, double duration) {
     struct TdoArenaState state = tdo_arena_state_get(arena);
 
     struct TdoString log_status = run.status.data;
     if (log_status.bytes == NULL || log_status.length == 0) {
-        tdo_run_report_error(*run.test, file, NULL, "no data in status pipe");
+        tdo_run_report_error(*run.test, file, NULL, "no data in status pipe", duration);
         goto done;
     } else if (log_status.bytes[log_status.length - 1] != '\n') {
-        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, does not end with newline");
+        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, does not end with newline", duration);
         goto done;
     } else if (log_status.length <= 1) {
-        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, only contains newline");
+        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, only contains newline", duration);
         goto done;
     }
 
     struct TdoString last_line = tdo_string_init();
     enum TdoError err = tdo_string_previous_line(&last_line, run.status.data, run.status.data.length - 1);
     if (err != TDO_ERROR_OK || last_line.length <= 0) {
-        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not find last line");
+        tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not find last line", duration);
         goto done;
     }
     last_line.bytes[last_line.length] = '\0'; // replace newline with null terminator
@@ -243,7 +249,7 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
         struct TdoString step_name;
         enum TdoError err = tdo_string_previous_line(&step_name, run.status.data, run.status.data.length - last_line.length - 2);
         if (err != TDO_ERROR_OK || last_line.length <= 0) {
-            tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not find line before error");
+            tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not find line before error", duration);
             goto done;
         }
         step_name.bytes[step_name.length] = '\0'; // overwrite newline
@@ -255,7 +261,7 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
             size_t index;
             enum TdoError err_parse = tdo_parse_size_t(&index, step_name.bytes + 2);
             if (err_parse != TDO_ERROR_OK) {
-                tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not parse fixture index");
+                tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
                 goto done;
             }
 
@@ -272,22 +278,22 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
             }
 
             if (current == NULL) {
-                tdo_run_report_error(*run.test, file, step_name.bytes, "invalid current fixture index");
+                tdo_run_report_error(*run.test, file, step_name.bytes, "invalid current fixture index", duration);
                 goto done;
             }
         } else {
-            tdo_run_report_error(*run.test, file, step_name.bytes, "unknown error");
+            tdo_run_report_error(*run.test, file, step_name.bytes, "unknown error", duration);
             goto done;
         }
 
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, step_name, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step");
+            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step", duration);
             goto done;
         }
 
-        tdo_run_report_error(*run.test, file, step.bytes, last_line.bytes + 1);
+        tdo_run_report_error(*run.test, file, step.bytes, last_line.bytes + 1, duration);
         goto done;
     }
 
@@ -296,7 +302,7 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
         size_t index;
         enum TdoError err_parse = tdo_parse_size_t(&index, last_line.bytes + 2);
         if (err_parse != TDO_ERROR_OK) {
-            tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not parse fixture index");
+            tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
             goto done;
         }
 
@@ -313,34 +319,34 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
             }
         }
         if (current == NULL) {
-            tdo_run_report_error(*run.test, file, last_line.bytes, "invalid current fixture index");
+            tdo_run_report_error(*run.test, file, last_line.bytes, "invalid current fixture index", duration);
             goto done;
         }
 
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step");
+            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step", duration);
             goto done;
         }
 
-        tdo_run_report_exit(run, file, step.bytes, status);
+        tdo_run_report_exit(run, file, step.bytes, status, duration);
     } else if (strncmp(last_line.bytes, "test", 4) == 0) {
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, run.test->symbol);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step");
+            tdo_run_report_error(*run.test, file, last_line.bytes, "could not build step", duration);
             goto done;
         }
 
         // unexpected exit while running test
-        tdo_run_report_exit(run, file, step.bytes, status);
+        tdo_run_report_exit(run, file, step.bytes, status, duration);
     } else if (strncmp(last_line.bytes, "finished", 8) == 0) {
         // test finished normally
-        tdo_run_report_exit(run, file, last_line.bytes, status);
+        tdo_run_report_exit(run, file, last_line.bytes, status, duration);
     } else {
         // unknown status
-        tdo_run_report_error(*run.test, file, NULL, "unknown error");
+        tdo_run_report_error(*run.test, file, NULL, "unknown error", duration);
     }
 
     done:
@@ -544,6 +550,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 fcntl(p_status[1], F_SETFD, FD_CLOEXEC);
             }
 
+            struct timespec start_time = {0};
+            clock_gettime(CLOCK_MONOTONIC, &start_time);
+
             pid_t pid = fork();
             switch (pid) {
                 case 0:
@@ -583,6 +592,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             close(p_out[1]); close(p_err[1]); close(p_status[1]);
             run->active = true;
             run->test = test;
+            run->start_time = start_time;
             run->pid = pid;
             tdo_log_reset(&run->out, p_out[0]);
             tdo_log_reset(&run->err, p_err[0]);
@@ -611,8 +621,16 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                     if (err != TDO_ERROR_OK) {
                         run->active = false;
                         status.running -= 1;
+
+                        struct timespec end_time = {0};
+                        clock_gettime(CLOCK_MONOTONIC, &end_time);
+                        double duration = (
+                            (double)(end_time.tv_sec - run->start_time.tv_sec)
+                            + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                        );
+
                         if (status.finished > 0) fprintf(output, ",");
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output");
+                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
                         status.finished += 1;
                     }
                 }
@@ -620,10 +638,17 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         } else if (errno != 0 && errno != EINTR && errno != EAGAIN) {
             perror("poll failed");
 
+            struct timespec end_time = {0};
+            clock_gettime(CLOCK_MONOTONIC, &end_time);
+
             for (size_t i = 0; i < args.processes; i++) {
                 struct TdoRun *run = &status.runs[i];
                 if (run->active) {
-                    tdo_run_report_error(*run->test, output, NULL, "could not poll pipes");
+                    double duration = (
+                        (double)(end_time.tv_sec - run->start_time.tv_sec)
+                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                    );
+                    tdo_run_report_error(*run->test, output, NULL, "could not poll pipes", duration);
                     status.finished += 1;
                 }
             }
@@ -631,7 +656,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not poll pipes");
+                tdo_run_report_error(ts[i], output, NULL, "could not poll pipes", -1.0);
                 status.finished += 1;
             }
             break;
@@ -646,11 +671,19 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                     enum TdoError err_err = tdo_log_drain(&run->err, arena);
                     enum TdoError status_err = tdo_log_drain(&run->status, arena);
 
+                    struct timespec end_time = {0};
+                    clock_gettime(CLOCK_MONOTONIC, &end_time);
+
+                    double duration = (
+                        (double)(end_time.tv_sec - run->start_time.tv_sec)
+                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                    );
+
                     if (status.finished > 0) fprintf(output, ",");
                     if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-                        tdo_run_report_status(*run, arena, output, return_status);
+                        tdo_run_report_status(*run, arena, output, return_status, duration);
                     } else {
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output");
+                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
                     }
 
                     run->active = false;
@@ -667,14 +700,14 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not fork process");
+                tdo_run_report_error(ts[i], output, NULL, "could not fork process", -1.0);
                 status.finished += 1;
             }
         } else if (status.running == 0 && status.log_setup_failed) {
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not setup log redirection");
+                tdo_run_report_error(ts[i], output, NULL, "could not setup log redirection", -1.0);
                 status.finished += 1;
             }
         }

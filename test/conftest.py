@@ -95,6 +95,7 @@ class StepFixtureAfter(Step):
 class Result:
     file: str
     name: str
+    duration: float
 
 
 @dataclasses.dataclass
@@ -155,19 +156,19 @@ def run_tests(runner: str):
 
             status = c['status']
             if status == 'error':
-                keys = {'file', 'name', 'status', 'error', 'step'}
+                keys = {'file', 'name', 'duration', 'status', 'error', 'step'}
                 result_type = ResultError
             elif status == 'complete':
-                keys = {'file', 'name', 'status', 'stdout', 'stderr'}
+                keys = {'file', 'name', 'duration', 'status', 'stdout', 'stderr'}
                 result_type = ResultComplete
             elif status == 'exit':
-                keys = {'file', 'name', 'status', 'exit', 'stdout', 'stderr', 'step'}
+                keys = {'file', 'name', 'duration', 'status', 'exit', 'stdout', 'stderr', 'step'}
                 result_type = ResultExit
             elif status == 'signal':
-                keys = {'file', 'name', 'status', 'signal', 'stdout', 'stderr', 'step'}
+                keys = {'file', 'name', 'duration', 'status', 'signal', 'stdout', 'stderr', 'step'}
                 result_type = ResultSignal
             elif status == 'stop':
-                keys = {'file', 'name', 'status', 'stop', 'stdout', 'stderr', 'step'}
+                keys = {'file', 'name', 'duration', 'status', 'stop', 'stdout', 'stderr', 'step'}
                 result_type = ResultStop
             else:
                 raise ValueError(f'Invalid status: "{status}"')
