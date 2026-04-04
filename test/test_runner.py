@@ -184,3 +184,99 @@ def test_error_load_library_fixture_after(library: str, run_tests: Callable[[str
         error='Could not load library: missing_library.so',
         step=StepFixtureAfter(file='missing_library.so', name='fixture_name'),
     )]
+
+
+def test_error_load_test(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f'test::{library}::not_a_test')
+
+    err = result[0].error
+    result[0].error = ''
+
+    assert result == [ResultError(
+        file=library,
+        name='not_a_test',
+        error='',
+        step=StepTest(file=library, name='not_a_test'),
+    )]
+
+    assert 'Could not load test: ' in err
+    assert 'not_a_test' in err
+
+
+def test_error_load_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f'test::{library}::test_success before::{library}::not_a_fixture')
+
+    err = result[0].error
+    result[0].error = ''
+
+    assert result == [ResultError(
+        file=library,
+        name='test_success',
+        error='',
+        step=StepFixtureBefore(file=library, name='not_a_fixture'),
+    )]
+
+    assert 'Could not load before fixture: ' in err
+    assert 'not_a_fixture' in err
+
+
+def test_error_load_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f'test::{library}::test_success after::{library}::not_a_fixture')
+
+    err = result[0].error
+    result[0].error = ''
+
+    assert result == [ResultError(
+        file=library,
+        name='test_success',
+        error='',
+        step=StepFixtureAfter(file=library, name='not_a_fixture'),
+    )]
+
+    assert 'Could not load after fixture: ' in err
+    assert 'not_a_fixture' in err
+
+
+def test_parse_missing_library(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, err = run_tests(f"""
+        test::::test_success
+        test::{library}::test_success
+    """)
+    assert 'Empty library name' in err
+    assert result == [ResultComplete(file=library, name='test_success', stdout='', stderr='')]
+
+
+def test_parse_missing_name(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, err = run_tests(f"""
+        test::library.so::
+        test::{library}::test_success
+    """)
+    assert 'Empty symbol name' in err
+    assert result == [ResultComplete(file=library, name='test_success', stdout='', stderr='')]
+
+
+def test_parse_invalid_prefix(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, err = run_tests(f"""
+        thing::library.so::test_name
+        test::{library}::test_success
+    """)
+    assert 'Expected test symbol to start with \'test::\', got \'thing:\'' in err
+    assert result == [ResultComplete(file=library, name='test_success', stdout='', stderr='')]
+
+
+def test_parse_first_not_test(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, err = run_tests(f"""
+        after::{library}::test_success test::{library}::test_success
+        test::{library}::test_success
+    """)
+    assert 'Expected test symbol to start with \'test::\', got \'after:\'' in err
+    assert result == [ResultComplete(file=library, name='test_success', stdout='', stderr='')]
+
+
+def test_parse_invalid_fixture(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, err = run_tests(f"""
+        test::{library}::test_success behind::{library}::test_success
+        test::{library}::test_success
+    """)
+    assert 'Expected fixture symbol to start with \'before::\' or \'after::\', got \'behind::\'' in err
+    assert result == [ResultComplete(file=library, name='test_success', stdout='', stderr='')]
