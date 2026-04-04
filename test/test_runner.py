@@ -119,7 +119,7 @@ def test_all(library: str, run_tests: Callable[[str], Tuple[list, str]]):
             file=library,
             name='test_aborts',
             step=StepTest(file=library, name='test_aborts'),
-            signal=pytest.approx(0, abs=1024),
+            signal=pytest.approx(0, abs=1024),  # the specific signal integer is implementation defined?
             stdout='',
             stderr='',
         ),
