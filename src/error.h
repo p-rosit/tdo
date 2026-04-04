@@ -14,6 +14,7 @@ enum TdoError {
     TDO_ERROR_NEWLINE = 8,
     TDO_ERROR_NEGATIVE = 9,
     TDO_ERROR_NUMBER = 10,
+    TDO_ERROR_PREFIX = 11,
 };
 
 #endif

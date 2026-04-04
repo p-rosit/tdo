@@ -196,7 +196,7 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest **test, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files, struct TdoArray *tests) {
     int c;
     while (line->length > 0 && isspace(c = line->bytes[0])) {
         line->length -= 1;
@@ -207,7 +207,7 @@ enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name
     if (strncmp(line->bytes, "test::", 6) != 0) {
         size_t prefix = line->length > 6 ? 6 : line->length;
         fprintf(stderr, "%s:%zu Expected test symbol to start with 'test::', got '%.*s'\n", file_name, line_number, (int) prefix, line->bytes);
-        return TDO_ERROR_EOF;
+        return TDO_ERROR_PREFIX;
     }
     line->bytes += 6;
     line->length -= 6;
@@ -222,10 +222,7 @@ enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name
     enum TdoError result = tdo_test_parse_symbol(line, file_name, line_number, arena, string_arena, &t.symbol, test_files);
     if (result != TDO_ERROR_OK) return result;
 
-    result = tdo_array_append(tests, arena, sizeof(struct TdoTest), &t);
-    if (result != TDO_ERROR_OK) return result;
-
-    *test = &((struct TdoTest*) tests->data)[tests->length - 1];
+    *test = t;
     return TDO_ERROR_OK;
 }
 
@@ -235,6 +232,7 @@ enum TdoError tdo_test_parse_fixture(struct TdoString *line, char const *file_na
         line->length -= 1;
         line->bytes += 1;
     }
+    if (line->length <= 0) return TDO_ERROR_OK;
 
     enum TdoFixtureKind kind;
     if (strncmp(line->bytes, "before::", 8) == 0) {
@@ -246,8 +244,8 @@ enum TdoError tdo_test_parse_fixture(struct TdoString *line, char const *file_na
         line->bytes += 7;
         line->length -= 7;
     } else {
-        fprintf(stderr, "%s:%zu Expected fixture symbol to start with 'before::' or 'after::'\n", file_name, line_number);
-        return TDO_ERROR_EOF;
+        fprintf(stderr, "%s:%zu Expected fixture symbol to start with 'before::' or 'after::', got '%.*s'\n", file_name, line_number, line->length < 8 ? (int) line->length : 8, line->bytes);
+        return TDO_ERROR_PREFIX;
     }
 
     struct TdoSymbol symbol;
@@ -286,22 +284,30 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         if (result == TDO_ERROR_FILE) break;
         else if (result != TDO_ERROR_OK) goto error;
 
-        struct TdoTest *test;
+        struct TdoTest test;
         result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files, tests);
-        if (result == TDO_ERROR_EOF) {
+        if (result == TDO_ERROR_EOF || result == TDO_ERROR_PREFIX) {
             continue;
         } else if (result != TDO_ERROR_OK) {
             goto error;
         }
 
         while (line.length > 0) {
-            result = tdo_test_parse_fixture(&line, file_name, line_number, arena, string_arena, test, test_files);
+            result = tdo_test_parse_fixture(&line, file_name, line_number, arena, string_arena, &test, test_files);
             if (result == TDO_ERROR_EOF) {
-                continue;
+                break;
+            } else if (result == TDO_ERROR_PREFIX) {
+                goto next_loop;
             } else if (result != TDO_ERROR_OK) {
                 goto error;
             }
         }
+
+        result = tdo_array_append(tests, arena, sizeof(struct TdoTest), &test);
+        if (result != TDO_ERROR_OK) return result;
+
+        next_loop:
+        (void)NULL;
     }
 
     result = TDO_ERROR_OK;
