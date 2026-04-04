@@ -368,6 +368,13 @@ void tdo_run_single(struct TdoTest *test, int status_fd) {
             }
             write(status_fd, status_buffer, length);
 
+            if (fixture.symbol.file->dynamic_handle == NULL) {
+                write(status_fd, "eCould not load library: ", 25);
+                write(status_fd, fixture.symbol.file->name.bytes, fixture.symbol.file->name.length);
+                write(status_fd, "\n", 1);
+                abort();
+            }
+
             void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
             char const *err = dlerror();
             if (err != NULL) {
@@ -385,6 +392,14 @@ void tdo_run_single(struct TdoTest *test, int status_fd) {
 
     // do the test
     write(status_fd, "test\n", 5);
+
+    if (test->symbol.file->dynamic_handle == NULL) {
+        write(status_fd, "eCould not load library: ", 25);
+        write(status_fd, test->symbol.file->name.bytes, test->symbol.file->name.length);
+        write(status_fd, "\n", 1);
+        abort();
+    }
+
     void (*t)(void) = (void (*)(void))dlsym(test->symbol.file->dynamic_handle, test->symbol.name.bytes);
     char const *err = dlerror();
     if (err != NULL) {
@@ -411,6 +426,13 @@ void tdo_run_single(struct TdoTest *test, int status_fd) {
                 abort();
             }
             write(status_fd, status_buffer, length);
+
+            if (fixture.symbol.file->dynamic_handle == NULL) {
+                write(status_fd, "eCould not load library: ", 25);
+                write(status_fd, fixture.symbol.file->name.bytes, fixture.symbol.file->name.length);
+                write(status_fd, "\n", 1);
+                abort();
+            }
 
             void (*fix)(void) = (void (*)(void))dlsym(fixture.symbol.file->dynamic_handle, fixture.symbol.name.bytes);
             char const *err = dlerror();

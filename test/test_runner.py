@@ -1,6 +1,6 @@
 from typing import Callable, Tuple
 import pytest
-from conftest import ResultComplete, ResultExit, ResultSignal, StepTest
+from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, StepFixtureAfter, StepFixtureBefore, StepTest
 
 
 def test_success(library: str, run_tests: Callable[[str], Tuple[list, str]]):
@@ -150,3 +150,37 @@ def test_all(library: str, run_tests: Callable[[str], Tuple[list, str]]):
             stderr='Other thing\n',
         ),
     ]
+
+
+def test_error_load_library_test(run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests('test::library_that_doesn\'t_exist.so::test_name')
+    assert result == [ResultError(
+        file='library_that_doesn\'t_exist.so',
+        name='test_name',
+        error='Could not load library: library_that_doesn\'t_exist.so',
+        step=StepTest(file='library_that_doesn\'t_exist.so', name='test_name'),
+    )]
+
+
+def test_error_load_library_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f"""
+        test::{library}::test_success before::missing_library.so::fixture_name
+    """)
+    assert result == [ResultError(
+        file=library,
+        name='test_success',
+        error='Could not load library: missing_library.so',
+        step=StepFixtureBefore(file='missing_library.so', name='fixture_name'),
+    )]
+
+
+def test_error_load_library_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+    result, _ = run_tests(f"""
+        test::{library}::test_success after::missing_library.so::fixture_name
+    """)
+    assert result == [ResultError(
+        file=library,
+        name='test_success',
+        error='Could not load library: missing_library.so',
+        step=StepFixtureAfter(file='missing_library.so', name='fixture_name'),
+    )]
