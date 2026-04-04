@@ -153,9 +153,19 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
     enum TdoError result = tdo_test_parse_file(&file_name, line, input_file_name, line_number);
     if (result != TDO_ERROR_OK) return result;
 
+    if (file_name.length <= 0) {
+        fprintf(stderr, "%s:%zu: Empty library name\n", input_file_name, line_number);
+        return TDO_ERROR_EOF; // library name empty
+    }
+
     struct TdoString name;
     result = tdo_test_parse_name(&name, line, input_file_name, line_number);
     if (result != TDO_ERROR_OK) return result;
+
+    if (name.length <= 0) {
+        fprintf(stderr, "%s:%zu: Empty symbol name\n", input_file_name, line_number);
+        return TDO_ERROR_EOF; // symbol name empty
+    }
 
     struct TdoFile *file = NULL;
     struct TdoFile *files = test_files->data;
