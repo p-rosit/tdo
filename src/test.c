@@ -287,7 +287,9 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         struct TdoTest test;
         result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files, tests);
         if (result == TDO_ERROR_EOF || result == TDO_ERROR_PREFIX) {
-            continue;
+            // not resetting the arena leaks memory but we might've seen a new
+            // dynamic library for the first time so it's not safe to reset
+            goto next_loop;
         } else if (result != TDO_ERROR_OK) {
             goto error;
         }
@@ -297,6 +299,8 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
             if (result == TDO_ERROR_EOF) {
                 break;
             } else if (result == TDO_ERROR_PREFIX) {
+                // not resetting the arena leaks memory but we might've seen a new
+                // dynamic library for the first time so it's not safe to reset
                 goto next_loop;
             } else if (result != TDO_ERROR_OK) {
                 goto error;
@@ -307,7 +311,7 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         if (result != TDO_ERROR_OK) return result;
 
         next_loop:
-        (void)NULL;
+        (void)NULL; // label wants an expression...
     }
 
     result = TDO_ERROR_OK;
