@@ -48,12 +48,23 @@ size_t tdo_run_assemble_active_fds(struct pollfd *fds, size_t *fd_to_idx, size_t
 
 void tdo_json_escaped(FILE *file, struct TdoString string) {
     for (size_t i = 0; i < string.length; i++) {
+        unsigned char c = string.bytes[i];
         switch (string.bytes[i]) {
             case '\"': fputs("\\\"", file); break;
             case '\\': fputs("\\\\", file); break;
+            case '\b': fputs("\\b", file); break;
+            case '\f': fputs("\\f", file); break;
             case '\n': fputs("\\n", file); break;
             case '\r': fputs("\\r", file); break;
-            default: fputc(string.bytes[i], file); break;
+            case '\t': fputs("\\t", file); break;
+            default:
+                if (c < 0x20 || c > 0x7E) {
+                    // control character or "random data"
+                    fprintf(file, "\\u%04x", (unsigned int) c);
+                } else {
+                    // ascii
+                    fputc(string.bytes[i], file); break;
+                }
         }
     }
 }
