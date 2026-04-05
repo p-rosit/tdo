@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     error_parse_input:
     if (output != stdout) fclose(output);
     error_open_output:
-    fclose(input);
+    if (input != stdin) fclose(input);
     error_open_input:
     tdo_arena_deinit(string_arena);
     error_init_string_arena:
