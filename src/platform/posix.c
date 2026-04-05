@@ -35,3 +35,9 @@ struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer
         .err = err,
     };
 }
+
+TdoMonotoneTime tdo_time_get(void) {
+    struct timespec time = {0};
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return time;
+}

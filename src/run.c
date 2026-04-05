@@ -7,7 +7,7 @@ struct TdoRun {
     struct TdoLog out;
     struct TdoLog err;
     struct TdoLog status;
-    struct timespec start_time;
+    TdoMonotoneTime start_time;
     pid_t pid;
     bool active;
 };
@@ -553,8 +553,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 fcntl(p_status[1], F_SETFD, FD_CLOEXEC);
             }
 
-            struct timespec start_time = {0};
-            clock_gettime(CLOCK_MONOTONIC, &start_time);
+            TdoMonotoneTime start_time = tdo_time_get();
 
             pid_t pid = fork();
             switch (pid) {
@@ -625,8 +624,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                         run->active = false;
                         status.running -= 1;
 
-                        struct timespec end_time = {0};
-                        clock_gettime(CLOCK_MONOTONIC, &end_time);
+                        TdoMonotoneTime end_time = tdo_time_get();
                         double duration = (
                             (double)(end_time.tv_sec - run->start_time.tv_sec)
                             + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
@@ -641,8 +639,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         } else if (errno != 0 && errno != EINTR && errno != EAGAIN) {
             perror("poll failed");
 
-            struct timespec end_time = {0};
-            clock_gettime(CLOCK_MONOTONIC, &end_time);
+            struct timespec end_time = tdo_time_get();
 
             for (size_t i = 0; i < args.processes; i++) {
                 struct TdoRun *run = &status.runs[i];
@@ -674,8 +671,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                     enum TdoError err_err = tdo_log_drain(&run->err, arena);
                     enum TdoError status_err = tdo_log_drain(&run->status, arena);
 
-                    struct timespec end_time = {0};
-                    clock_gettime(CLOCK_MONOTONIC, &end_time);
+                    struct timespec end_time = tdo_time_get();
 
                     double duration = (
                         (double)(end_time.tv_sec - run->start_time.tv_sec)
