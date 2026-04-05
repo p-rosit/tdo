@@ -3,7 +3,7 @@
 #include <ctype.h>
 
 struct TdoFile {
-    void *dynamic_handle;
+    TdoLibrary library;
     struct TdoString name;
 };
 
@@ -179,7 +179,7 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
 
     if (file == NULL) {
         struct TdoFile f = (struct TdoFile) {
-            .dynamic_handle = NULL,
+            .library = NULL,
             .name = tdo_string_init(),
         };
         if (!tdo_string_clone(&f.name, string_arena, file_name)) return TDO_ERROR_MEMORY;

@@ -41,3 +41,35 @@ TdoMonotoneTime tdo_time_get(void) {
     clock_gettime(CLOCK_MONOTONIC, &time);
     return time;
 }
+
+struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path, struct TdoArena *arena) {
+    dlerror();
+    void *handle = dlopen(path, RTLD_NOW);
+    char const *error = dlerror();
+    if (error != NULL) {
+        handle = NULL;
+    }
+
+    return (struct TdoLibraryLoadResult) {
+        .err = error,
+        .lib = handle,
+    };
+}
+
+void tdo_dynamic_library_unload(TdoLibrary lib) {
+    dlclose(lib);
+}
+
+struct TdoSymbolLoadResult tdo_dynamic_symbol_load(TdoLibrary lib, char const *name, struct TdoArena *arena) {
+    dlerror();
+    void *symbol = dlsym(lib, name);
+    char const *error = dlerror();
+    if (error != NULL) {
+        symbol = NULL;
+    }
+
+    return (struct TdoSymbolLoadResult) {
+        .err = error,
+        .symbol = symbol,
+    };
+}

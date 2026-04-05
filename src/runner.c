@@ -75,23 +75,26 @@ int main(int argc, char **argv) {
     result = tdo_input_parse(arena, string_arena, args.test_file != NULL ? args.test_file : "<stdin>", input, &test_files, &tests);
     if (result != TDO_ERROR_OK) goto error_parse_input;
 
-    dlerror();
+    struct TdoArenaState state = tdo_arena_state_get(arena);
     struct TdoFile *files = (struct TdoFile*) test_files.data;
     for (size_t i = 0; i < test_files.length; i++) {
-        void *handle = dlopen(files[i].name.bytes, RTLD_NOW);
-        char const *error = dlerror();
-        if (error != NULL) {
-            fprintf(stderr, "%s\n", error);
+        tdo_arena_state_set(arena, state);
+
+        struct TdoLibraryLoadResult result = tdo_dynamic_library_load(files[i].name.bytes, arena);
+        if (result.err != NULL) {
+            fprintf(stderr, "%s\n", result.err);
+            files[i].library = NULL;
         } else {
-            files[i].dynamic_handle = handle;
+            files[i].library = result.lib;
         }
     }
+    tdo_arena_state_set(arena, state);
 
     result = tdo_run_all(args, output, arena, tests);
 
     for (size_t i = 0; i < test_files.length; i++) {
-        if (files[i].dynamic_handle == NULL) continue;
-        dlclose(files[i].dynamic_handle);
+        if (files[i].library == NULL) continue;
+        tdo_dynamic_library_unload(files[i].library);
     }
     error_parse_input:
     if (output != stdout) fclose(output);
