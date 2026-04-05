@@ -2,14 +2,6 @@
 #include "arguments.c"
 #include "test.c"
 
-#include <unistd.h>
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <time.h>
-
 struct TdoRun {
     struct TdoTest *test;
     struct TdoLog out;

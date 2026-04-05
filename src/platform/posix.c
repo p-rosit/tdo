@@ -2,7 +2,14 @@
 #include "interface.h"
 #include <errno.h>
 #include <stdio.h>
+
 #include <unistd.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <time.h>
 
 struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer) {
     errno = 0;
