@@ -614,6 +614,36 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
     }
 }
 
+void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct TdoArena *arena, FILE *output) {
+    int return_status;
+    if (waitpid(run->pid, &return_status, WNOHANG) > 0) {
+        enum TdoError out_err = tdo_log_drain(&run->out, arena);
+        enum TdoError err_err = tdo_log_drain(&run->err, arena);
+        enum TdoError status_err = tdo_log_drain(&run->status, arena);
+
+        struct timespec end_time = tdo_time_get();
+
+        double duration = (
+            (double)(end_time.tv_sec - run->start_time.tv_sec)
+            + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+        );
+
+        if (status->finished > 0) fprintf(output, ",");
+        if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
+            tdo_run_report_status(*run, arena, output, return_status, duration);
+        } else {
+            tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+        }
+
+        run->active = false;
+        close(run->out.fd);
+        close(run->err.fd);
+        close(run->status.fd);
+        status->running -= 1;
+        status->finished += 1;
+    }
+}
+
 enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
@@ -671,33 +701,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         for (size_t i = 0; i < args.processes; i++) {
             struct TdoRun *run = &status.runs[i];
             if (run->active) {
-                int return_status;
-                if (waitpid(run->pid, &return_status, WNOHANG) > 0) {
-                    enum TdoError out_err = tdo_log_drain(&run->out, arena);
-                    enum TdoError err_err = tdo_log_drain(&run->err, arena);
-                    enum TdoError status_err = tdo_log_drain(&run->status, arena);
-
-                    struct timespec end_time = tdo_time_get();
-
-                    double duration = (
-                        (double)(end_time.tv_sec - run->start_time.tv_sec)
-                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                    );
-
-                    if (status.finished > 0) fprintf(output, ",");
-                    if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-                        tdo_run_report_status(*run, arena, output, return_status, duration);
-                    } else {
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
-                    }
-
-                    run->active = false;
-                    close(run->out.fd);
-                    close(run->err.fd);
-                    close(run->status.fd);
-                    status.running -= 1;
-                    status.finished += 1;
-                }
+                tdo_run_poll_exit(run, &status, arena, output);
             }
         }
 
