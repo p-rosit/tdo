@@ -553,6 +553,67 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     status->running += 1;
 }
 
+void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
+    size_t fd_count = tdo_run_assemble_active_fds(status->fds, status->fd_to_idx, args.processes, status->runs);
+
+    errno = 0;
+    if (poll(status->fds, fd_count, 100) > 0) {
+        for (size_t i = 0; i < fd_count; i++) {
+            if (status->fds[i].revents & POLLIN) {
+                struct TdoRun *run = &status->runs[status->fd_to_idx[i]];
+
+                enum TdoError err;
+                if (status->fds[i].fd == run->out.fd) {
+                    err = tdo_log_drain(&run->out, arena);
+                } else if (status->fds[i].fd == run->err.fd) {
+                    err = tdo_log_drain(&run->err, arena);
+                } else {
+                    err = tdo_log_drain(&run->status, arena);
+                }
+
+                if (err != TDO_ERROR_OK) {
+                    run->active = false;
+                    status->running -= 1;
+
+                    TdoMonotoneTime end_time = tdo_time_get();
+                    double duration = (
+                        (double)(end_time.tv_sec - run->start_time.tv_sec)
+                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                    );
+
+                    if (status->finished > 0) fprintf(output, ",");
+                    tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                    status->finished += 1;
+                }
+            }
+        }
+    } else if (errno != 0 && errno != EINTR && errno != EAGAIN) {
+        perror("poll failed");
+
+        struct timespec end_time = tdo_time_get();
+
+        for (size_t i = 0; i < args.processes; i++) {
+            struct TdoRun *run = &status->runs[i];
+            if (run->active) {
+                double duration = (
+                    (double)(end_time.tv_sec - run->start_time.tv_sec)
+                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                );
+                tdo_run_report_error(*run->test, output, NULL, "could not poll pipes", duration);
+                status->finished += 1;
+                run->active = false;
+            }
+        }
+
+        struct TdoTest *ts = tests.data;
+        for (size_t i = status->started; i < tests.length; i++) {
+            if (status->finished > 0) fprintf(output, ",");
+            tdo_run_report_error(ts[i], output, NULL, "could not poll pipes", -1.0);
+            status->finished += 1;
+        }
+    }
+}
+
 enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
@@ -605,64 +666,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             tdo_run_start_new(&status, arena, args, output, tests);
         }
 
-        size_t fd_count = tdo_run_assemble_active_fds(status.fds, status.fd_to_idx, args.processes, status.runs);
-
-        errno = 0;
-        if (poll(status.fds, fd_count, 100) > 0) {
-            for (size_t i = 0; i < fd_count; i++) {
-                if (status.fds[i].revents & POLLIN) {
-                    struct TdoRun *run = &status.runs[status.fd_to_idx[i]];
-
-                    enum TdoError err;
-                    if (status.fds[i].fd == run->out.fd) {
-                        err = tdo_log_drain(&run->out, arena);
-                    } else if (status.fds[i].fd == run->err.fd) {
-                        err = tdo_log_drain(&run->err, arena);
-                    } else {
-                        err = tdo_log_drain(&run->status, arena);
-                    }
-
-                    if (err != TDO_ERROR_OK) {
-                        run->active = false;
-                        status.running -= 1;
-
-                        TdoMonotoneTime end_time = tdo_time_get();
-                        double duration = (
-                            (double)(end_time.tv_sec - run->start_time.tv_sec)
-                            + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                        );
-
-                        if (status.finished > 0) fprintf(output, ",");
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
-                        status.finished += 1;
-                    }
-                }
-            }
-        } else if (errno != 0 && errno != EINTR && errno != EAGAIN) {
-            perror("poll failed");
-
-            struct timespec end_time = tdo_time_get();
-
-            for (size_t i = 0; i < args.processes; i++) {
-                struct TdoRun *run = &status.runs[i];
-                if (run->active) {
-                    double duration = (
-                        (double)(end_time.tv_sec - run->start_time.tv_sec)
-                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                    );
-                    tdo_run_report_error(*run->test, output, NULL, "could not poll pipes", duration);
-                    status.finished += 1;
-                }
-            }
-
-            struct TdoTest *ts = tests.data;
-            for (size_t i = status.started; i < tests.length; i++) {
-                if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not poll pipes", -1.0);
-                status.finished += 1;
-            }
-            break;
-        }
+        tdo_run_poll_event(&status, arena, args, output, tests);
 
         for (size_t i = 0; i < args.processes; i++) {
             struct TdoRun *run = &status.runs[i];
