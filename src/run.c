@@ -19,25 +19,6 @@ struct TdoRun *tdo_run_new(size_t length, struct TdoRun *runs) {
     return NULL;
 }
 
-size_t tdo_run_assemble_active_fds(struct pollfd *fds, size_t *fd_to_idx, size_t length, struct TdoRun *runs) {
-    size_t fd_count = 0;
-    for (size_t i = 0; i < length; i++) {
-        struct TdoRun *run = &runs[i];
-        if (run->active) {
-            fds[fd_count].fd = run->out.fd;
-            fds[fd_count].events = POLLIN;
-            fd_to_idx[fd_count++] = i;
-            fds[fd_count].fd = run->err.fd;
-            fds[fd_count].events = POLLIN;
-            fd_to_idx[fd_count++] = i;
-            fds[fd_count].fd = run->status.fd;
-            fds[fd_count].events = POLLIN;
-            fd_to_idx[fd_count++] = i;
-        }
-    }
-    return fd_count;
-}
-
 void tdo_json_escaped(FILE *file, struct TdoString string) {
     for (size_t i = 0; i < string.length; i++) {
         unsigned char c = string.bytes[i];
@@ -460,6 +441,25 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
 }
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
+    size_t tdo_run_assemble_active_fds(struct pollfd *fds, size_t *fd_to_idx, size_t length, struct TdoRun *runs) {
+        size_t fd_count = 0;
+        for (size_t i = 0; i < length; i++) {
+            struct TdoRun *run = &runs[i];
+            if (run->active) {
+                fds[fd_count].fd = run->out.fd;
+                fds[fd_count].events = POLLIN;
+                fd_to_idx[fd_count++] = i;
+                fds[fd_count].fd = run->err.fd;
+                fds[fd_count].events = POLLIN;
+                fd_to_idx[fd_count++] = i;
+                fds[fd_count].fd = run->status.fd;
+                fds[fd_count].events = POLLIN;
+                fd_to_idx[fd_count++] = i;
+            }
+        }
+        return fd_count;
+    }
+
     void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
         fflush(stdout);
         fflush(output);
