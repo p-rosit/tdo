@@ -360,8 +360,6 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
 void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd) {
     char status_buffer[64]; // must fit "b_18446744073709551615"
 
-    dlerror(); // clear old errors for good luck
-
     // run before fixtures
     struct TdoFixture *fixtures = test->fixtures.data;
     for (size_t i = 0, index = 0; i < test->fixtures.length; i++) {
