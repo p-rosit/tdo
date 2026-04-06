@@ -11,6 +11,7 @@
     typedef struct timespec TdoMonotoneTime;
 #elif defined(_WIN32)
     #include <windows.h>
+
     typedef HANDLE TdoFileDescriptor;
     typedef HMODULE TdoLibrary;
 
@@ -25,6 +26,8 @@ struct TdoReadResult {
 };
 
 struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer);
+
+void tdo_write_fd(TdoFileDescriptor fd, size_t size, char const *data);
 
 TdoMonotoneTime tdo_time_get(void);
 

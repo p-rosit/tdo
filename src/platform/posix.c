@@ -36,6 +36,11 @@ struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer
     };
 }
 
+void tdo_write_fd(TdoFileDescriptor fd, size_t size, char const *data) {
+    ssize_t bytes_written = write(fd, data, size);
+    (void)bytes_written;
+}
+
 TdoMonotoneTime tdo_time_get(void) {
     struct timespec time = {0};
     clock_gettime(CLOCK_MONOTONIC, &time);

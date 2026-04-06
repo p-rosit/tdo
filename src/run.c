@@ -338,7 +338,7 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
     return;
 }
 
-void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd) {
+void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, TdoFileDescriptor status_fd) {
     char status_buffer[64]; // must fit "b_18446744073709551615"
 
     // run before fixtures
@@ -348,29 +348,29 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
         if (fixture.kind == TDO_FIXTURE_BEFORE) {
             int length = snprintf(status_buffer, sizeof(status_buffer), "b_%zu\n", index++);
             if (length < 0) {
-                write(status_fd, "eCould not format status string\n", 32);
+                tdo_write_fd(status_fd, 32, "eCould not format status string\n");
                 abort();
             } if (length >= sizeof(status_buffer)) {
-                write(status_fd, "eCould not format status string, result too long\n", 49);
+                tdo_write_fd(status_fd, 49, "eCould not format status string, result too long\n");
                 abort();
             }
-            write(status_fd, status_buffer, length);
+            tdo_write_fd(status_fd, length, status_buffer);
 
             if (fixture.symbol.file->library == NULL) {
-                write(status_fd, "eCould not load library: ", 25);
-                write(status_fd, fixture.symbol.file->name.bytes, fixture.symbol.file->name.length);
-                write(status_fd, "\n", 1);
+                tdo_write_fd(status_fd, 25, "eCould not load library: ");
+                tdo_write_fd(status_fd, fixture.symbol.file->name.length, fixture.symbol.file->name.bytes);
+                tdo_write_fd(status_fd, 1, "\n");
                 abort();
             }
 
             struct TdoSymbolLoadResult fixture_result = tdo_dynamic_symbol_load(fixture.symbol.file->library, fixture.symbol.name.bytes, arena);
             if (fixture_result.err != NULL) {
-                write(status_fd, "eCould not load before fixture: ", 32);
-                write(status_fd, fixture_result.err, strlen(fixture_result.err));
-                write(status_fd, "\n", 1);
+                tdo_write_fd(status_fd, 32, "eCould not load before fixture: ");
+                tdo_write_fd(status_fd, strlen(fixture_result.err), fixture_result.err);
+                tdo_write_fd(status_fd, 1, "\n");
                 abort();
             } else if (fixture_result.symbol == NULL) {
-                write(status_fd, "eSymbol is null\n", 16);
+                tdo_write_fd(status_fd, 16, "eSymbol is null\n");
                 abort();
             }
             void (*fix)(void) = fixture_result.symbol;
@@ -379,23 +379,23 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
     }
 
     // do the test
-    write(status_fd, "test\n", 5);
+    tdo_write_fd(status_fd, 5, "test\n");
 
     if (test->symbol.file->library == NULL) {
-        write(status_fd, "eCould not load library: ", 25);
-        write(status_fd, test->symbol.file->name.bytes, test->symbol.file->name.length);
-        write(status_fd, "\n", 1);
+        tdo_write_fd(status_fd, 25, "eCould not load library: ");
+        tdo_write_fd(status_fd, test->symbol.file->name.length, test->symbol.file->name.bytes);
+        tdo_write_fd(status_fd, 1, "\n");
         abort();
     }
 
     struct TdoSymbolLoadResult symbol_result = tdo_dynamic_symbol_load(test->symbol.file->library, test->symbol.name.bytes, arena);
     if (symbol_result.err != NULL) {
-        write(status_fd, "eCould not load test: ", 22);
-        write(status_fd, symbol_result.err, strlen(symbol_result.err));
-        write(status_fd, "\n", 1);
+        tdo_write_fd(status_fd, 22, "eCould not load test: ");
+        tdo_write_fd(status_fd, strlen(symbol_result.err), symbol_result.err);
+        tdo_write_fd(status_fd, 1, "\n");
         abort();
     } else if (symbol_result.symbol == NULL) {
-        write(status_fd, "eSymbol is null\n", 16);
+        tdo_write_fd(status_fd, 16, "eSymbol is null\n");
         abort();
     }
     void (*t)(void) = symbol_result.symbol;
@@ -407,29 +407,29 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
         if (fixture.kind == TDO_FIXTURE_AFTER) {
             int length = snprintf(status_buffer, sizeof(status_buffer), "a_%zu\n", index++);
             if (length < 0) {
-                write(status_fd, "eCould not format status string\n", 32);
+                tdo_write_fd(status_fd, 32, "eCould not format status string\n");
                 abort();
             } if (length >= sizeof(status_buffer)) {
-                write(status_fd, "eCould not format status string, result too long\n", 49);
+                tdo_write_fd(status_fd, 49, "eCould not format status string, result too long\n");
                 abort();
             }
-            write(status_fd, status_buffer, length);
+            tdo_write_fd(status_fd, length, status_buffer);
 
             if (fixture.symbol.file->library == NULL) {
-                write(status_fd, "eCould not load library: ", 25);
-                write(status_fd, fixture.symbol.file->name.bytes, fixture.symbol.file->name.length);
-                write(status_fd, "\n", 1);
+                tdo_write_fd(status_fd, 25, "eCould not load library: ");
+                tdo_write_fd(status_fd, fixture.symbol.file->name.length, fixture.symbol.file->name.bytes);
+                tdo_write_fd(status_fd, 1, "\n");
                 abort();
             }
 
             struct TdoSymbolLoadResult fixture_result = tdo_dynamic_symbol_load(fixture.symbol.file->library, fixture.symbol.name.bytes, arena);
             if (fixture_result.err != NULL) {
-                write(status_fd, "eCould not load after fixture: ", 31);
-                write(status_fd, fixture_result.err, strlen(fixture_result.err));
-                write(status_fd, "\n", 1);
+                tdo_write_fd(status_fd, 31, "eCould not load after fixture: ");
+                tdo_write_fd(status_fd, strlen(fixture_result.err), fixture_result.err);
+                tdo_write_fd(status_fd, 1, "\n");
                 abort();
             } else if (fixture_result.symbol == NULL) {
-                write(status_fd, "eSymbol is null\n", 16);
+                tdo_write_fd(status_fd, 16, "eSymbol is null\n");
                 abort();
             }
             void (*fix)(void) = fixture_result.symbol;
@@ -437,7 +437,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
         }
     }
 
-    write(status_fd, "finished\n", 9);
+    tdo_write_fd(status_fd, 9, "finished\n");
 }
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
