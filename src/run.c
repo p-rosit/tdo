@@ -459,6 +459,100 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, int status_fd)
     write(status_fd, "finished\n", 9);
 }
 
+void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
+    fflush(stdout);
+    fflush(output);
+    fflush(stderr); // normally unbuffered, but it could be buffered
+
+    struct TdoTest *test = &((struct TdoTest*) tests.data)[status->started];
+    struct TdoRun *run = tdo_run_new(args.processes, status->runs);
+    if (run == NULL) {
+        fprintf(stderr, "could not start new test run, all test runs are active");
+        abort();
+    }
+    status->started += 1;
+
+    int p_out[2], p_err[2], p_status[2];
+    if (pipe(p_out) || pipe(p_err) || pipe(p_status)) {
+        // we should possibly close the pipes we were able to open
+        // here, but we're just about to exit anyway, so who cares
+        status->log_setup_failed = true;
+        status->started -= 1;
+        return;
+    }
+
+    // set all pipes to be non-blocking
+    {
+        int flags = fcntl(p_out[0], F_GETFL, 0);
+        fcntl(p_out[0], F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(p_err[0], F_GETFL, 0);
+        fcntl(p_err[0], F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(p_status[0], F_GETFL, 0);
+        fcntl(p_status[0], F_SETFL, flags | O_NONBLOCK);
+    }
+
+    // set all pipes to not be inherited by exec
+    {
+        fcntl(p_out[0], F_SETFD, FD_CLOEXEC);
+        fcntl(p_out[1], F_SETFD, FD_CLOEXEC);
+        fcntl(p_err[0], F_SETFD, FD_CLOEXEC);
+        fcntl(p_err[1], F_SETFD, FD_CLOEXEC);
+        fcntl(p_status[0], F_SETFD, FD_CLOEXEC);
+        fcntl(p_status[1], F_SETFD, FD_CLOEXEC);
+    }
+
+    TdoMonotoneTime start_time = tdo_time_get();
+
+    pid_t pid = fork();
+    switch (pid) {
+        case 0:
+            // child
+
+            // close output file
+            if (output != stdout) fclose(output);
+
+            // close all pipe fds inherited from parent's other active runs
+            for (size_t i = 0; i < args.processes; i++) {
+                if (status->runs[i].active) {
+                    close(status->runs[i].out.fd);
+                    close(status->runs[i].err.fd);
+                    close(status->runs[i].status.fd);
+                }
+            }
+
+            // close write end of input pipes
+            close(p_out[0]); close(p_err[0]); close(p_status[0]);
+
+            // replace stdout/stderr
+            dup2(p_out[1], STDOUT_FILENO);
+            dup2(p_err[1], STDERR_FILENO);
+
+            tdo_run_single(test, arena, p_status[1]);
+
+            // flush buffers
+            fflush(stdout);
+            fflush(stderr);
+            _exit(0);
+        case -1:
+            status->fork_failed = true;
+            status->started -= 1;
+            return;
+    }
+
+    close(p_out[1]); close(p_err[1]); close(p_status[1]);
+    run->active = true;
+    run->test = test;
+    run->start_time = start_time;
+    run->pid = pid;
+    tdo_log_reset(&run->out, p_out[0]);
+    tdo_log_reset(&run->err, p_err[0]);
+    tdo_log_reset(&run->status, p_status[0]);
+
+    status->running += 1;
+}
+
 enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
@@ -508,97 +602,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
 
     while (status.finished < tests.length) {
         while (status.running < args.processes && status.started < tests.length && !status.fork_failed && !status.log_setup_failed) {
-            fflush(stdout);
-            fflush(output);
-            fflush(stderr); // normally unbuffered, but it could be buffered
-
-            struct TdoTest *test = &((struct TdoTest*) tests.data)[status.started];
-            struct TdoRun *run = tdo_run_new(args.processes, status.runs);
-            if (run == NULL) {
-                fprintf(stderr, "could not start new test run, all test runs are active");
-                abort();
-            }
-            status.started += 1;
-
-            int p_out[2], p_err[2], p_status[2];
-            if (pipe(p_out) || pipe(p_err) || pipe(p_status)) {
-                // we should possibly close the pipes we were able to open
-                // here, but we're just about to exit anyway, so who cares
-                status.log_setup_failed = true;
-                status.started -= 1;
-                continue;
-            }
-
-            // set all pipes to be non-blocking
-            {
-                int flags = fcntl(p_out[0], F_GETFL, 0);
-                fcntl(p_out[0], F_SETFL, flags | O_NONBLOCK);
-
-                flags = fcntl(p_err[0], F_GETFL, 0);
-                fcntl(p_err[0], F_SETFL, flags | O_NONBLOCK);
-
-                flags = fcntl(p_status[0], F_GETFL, 0);
-                fcntl(p_status[0], F_SETFL, flags | O_NONBLOCK);
-            }
-
-            // set all pipes to not be inherited by exec
-            {
-                fcntl(p_out[0], F_SETFD, FD_CLOEXEC);
-                fcntl(p_out[1], F_SETFD, FD_CLOEXEC);
-                fcntl(p_err[0], F_SETFD, FD_CLOEXEC);
-                fcntl(p_err[1], F_SETFD, FD_CLOEXEC);
-                fcntl(p_status[0], F_SETFD, FD_CLOEXEC);
-                fcntl(p_status[1], F_SETFD, FD_CLOEXEC);
-            }
-
-            TdoMonotoneTime start_time = tdo_time_get();
-
-            pid_t pid = fork();
-            switch (pid) {
-                case 0:
-                    // child
-
-                    // close output file
-                    if (output != stdout) fclose(output);
-
-                    // close all pipe fds inherited from parent's other active runs
-                    for (size_t i = 0; i < args.processes; i++) {
-                        if (status.runs[i].active) {
-                            close(status.runs[i].out.fd);
-                            close(status.runs[i].err.fd);
-                            close(status.runs[i].status.fd);
-                        }
-                    }
-
-                    // close write end of input pipes
-                    close(p_out[0]); close(p_err[0]); close(p_status[0]);
-
-                    // replace stdout/stderr
-                    dup2(p_out[1], STDOUT_FILENO);
-                    dup2(p_err[1], STDERR_FILENO);
-
-                    tdo_run_single(test, arena, p_status[1]);
-
-                    // flush buffers
-                    fflush(stdout);
-                    fflush(stderr);
-                    _exit(0);
-                case -1:
-                    status.fork_failed = true;
-                    status.started -= 1;
-                    continue;
-            }
-
-            close(p_out[1]); close(p_err[1]); close(p_status[1]);
-            run->active = true;
-            run->test = test;
-            run->start_time = start_time;
-            run->pid = pid;
-            tdo_log_reset(&run->out, p_out[0]);
-            tdo_log_reset(&run->err, p_err[0]);
-            tdo_log_reset(&run->status, p_status[0]);
-
-            status.running += 1;
+            tdo_run_start_new(&status, arena, args, output, tests);
         }
 
         size_t fd_count = tdo_run_assemble_active_fds(status.fds, status.fd_to_idx, args.processes, status.runs);
