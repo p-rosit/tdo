@@ -48,7 +48,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
     fprintf(file, "\"");
 }
 
-void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int status, double duration) {
+void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, TdoProcessStatus status, double duration) {
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -63,25 +63,25 @@ void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, int st
     fprintf(file, "\t\t\"duration\": %lf,\n", duration);
 
     fprintf(file, "\t\t\"status\": \"");
-    if (WIFEXITED(status)) {
+    if (tdo_process_status_is_exit(status)) {
         if (step[0] == 'f') {
             fprintf(file, "complete");
         } else {
             fprintf(file, "exit");
         }
-    } else if (WIFSIGNALED(status)) {
+    } else if (tdo_process_status_is_signal(status)) {
         fprintf(file, "signal");
-    } else if (WIFSTOPPED(status)) {
+    } else if (tdo_process_status_is_stop(status)) {
         fprintf(file, "stop");
     }
     fprintf(file, "\"");
 
-    if (WIFEXITED(status) && step[0] != 'f') {
-        fprintf(file, ",\n\t\t\"exit\": %d", WEXITSTATUS(status));
+    if (tdo_process_status_is_exit(status) && step[0] != 'f') {
+        fprintf(file, ",\n\t\t\"exit\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_exit(status));
     } else if (WIFSIGNALED(status)) {
-        fprintf(file, ",\n\t\t\"signal\": %d", WTERMSIG(status));
+        fprintf(file, ",\n\t\t\"signal\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_signal(status));
     } else if (WIFSTOPPED(status)) {
-        fprintf(file, ",\n\t\t\"stop\": %d", WSTOPSIG(status));
+        fprintf(file, ",\n\t\t\"stop\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_stop(status));
     }
 
     if (step[0] != 'f') {

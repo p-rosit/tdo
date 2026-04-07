@@ -9,6 +9,10 @@
     typedef void* TdoLibrary;
 
     typedef struct timespec TdoMonotoneTime;
+
+    typedef int TdoProcessStatus;
+    typedef int TdoProcessCode;
+    #define TDO_PROCESS_CODE_FORMAT "%d"
 #elif defined(_WIN32)
     #include <windows.h>
 
@@ -16,6 +20,10 @@
     typedef HMODULE TdoLibrary;
 
     typedef /* ??? */ TdoMonotoneTime;
+
+    typedef DWORD TdoProcessStatus;
+    typedef DWORD TdoProcessCode;
+    #define TDO_PROCESS_CODE_FORMAT "%lu"
 #else
     #error "Unknown platform"
 #endif
@@ -47,5 +55,13 @@ struct TdoSymbolLoadResult {
 };
 
 struct TdoSymbolLoadResult tdo_dynamic_symbol_load(TdoLibrary lib, char const *name, struct TdoArena *arena);
+
+bool tdo_process_status_is_exit(TdoProcessStatus status);
+bool tdo_process_status_is_signal(TdoProcessStatus status);
+bool tdo_process_status_is_stop(TdoProcessStatus status);
+
+TdoProcessCode tdo_process_code_exit(TdoProcessStatus status);
+TdoProcessCode tdo_process_code_signal(TdoProcessStatus status);
+TdoProcessCode tdo_process_code_stop(TdoProcessStatus status);
 
 #endif

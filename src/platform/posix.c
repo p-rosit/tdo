@@ -78,3 +78,27 @@ struct TdoSymbolLoadResult tdo_dynamic_symbol_load(TdoLibrary lib, char const *n
         .symbol = symbol,
     };
 }
+
+bool tdo_process_status_is_exit(TdoProcessStatus status) {
+    return WIFEXITED(status);
+}
+
+bool tdo_process_status_is_signal(TdoProcessStatus status) {
+    return WIFSIGNALED(status);
+}
+
+bool tdo_process_status_is_stop(TdoProcessStatus status) {
+    return WIFSTOPPED(status);
+}
+
+TdoProcessCode tdo_process_code_exit(TdoProcessStatus status) {
+    return WEXITSTATUS(status);
+}
+
+TdoProcessCode tdo_process_code_signal(TdoProcessStatus status) {
+    return WTERMSIG(status);
+}
+
+TdoProcessCode tdo_process_code_stop(TdoProcessStatus status) {
+    return WSTOPSIG(status);
+}
