@@ -11,6 +11,26 @@ def root_directory() -> str:
     return os.path.dirname(__file__)
 
 
+def dynamic_library(name: str) -> str:
+    if os.name == 'posix':
+        extension = 'so'
+    elif os.name == 'nt':
+        extension = 'dll'
+    else:
+        raise NotImplementedError(f'Unknown os: {os.name}')
+    return f'{name}.{extension}'
+
+
+def executable(name: str) -> str:
+    if os.name == 'posix':
+        extension = 'out'
+    elif os.name == 'nt':
+        extension = 'exe'
+    else:
+        raise NotImplementedError(f'Unknown os: {os.name}')
+    return f'{name}.{extension}'
+
+
 class CompileError(Exception):
     pass
 
@@ -19,15 +39,29 @@ class CompileError(Exception):
 def library(root_directory: str) -> Generator[str, None, None]:
     name = 'library'
     source = f'{name}.c'
-    compiled = f'{name}.so'
+    compiled = dynamic_library(name)
 
     source_path = os.path.join(root_directory, source)
     compiled_path = os.path.join(root_directory, compiled)
+    object_path = os.path.join(root_directory, f'{name}.obj')
 
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    code = os.system(f'gcc -shared -fPIC {source_path} -o {compiled_path}')
+    if os.name == 'posix':
+        command = f'gcc -shared -fPIC {source_path} -o {compiled_path}'
+    elif os.name == 'nt':
+        command = f'cl /LD /nologo {source_path} /Fe{compiled_path} /Fo{object_path}'
+    else:
+        raise NotImplementedError(f'Unknown os: {os.name}')
+
+    code = os.system(command)
+
+    try:
+        os.remove(object_path)
+    except FileNotFoundError:
+        pass
+
     if code:
         raise CompileError(f'Could not compile {source}')
 
@@ -44,11 +78,25 @@ def runner(root_directory: str) -> Generator[str, None, None]:
 
     source_path = os.path.join(root_directory, '..', 'src', source)
     compiled_path = os.path.join(root_directory, compiled)
+    object_path = os.path.join(root_directory, f'{name}.obj')
 
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    code = os.system(f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {source_path} -o {compiled_path}')
+    if os.name == 'posix':
+        command = f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {source_path} -o {compiled_path}'
+    elif os.name == 'nt':
+        command = f'cl /nologo {source_path} /Fe{compiled_path} /Fo{object_path}'
+    else:
+        raise NotImplementedError(f'Unknown os: {os.name}')
+
+    code = os.system(command)
+
+    try:
+        os.remove(object_path)
+    except FileNotFoundError:
+        pass
+
     if code:
         raise CompileError(f'Could not compile {source}')
 
