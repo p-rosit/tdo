@@ -8,7 +8,14 @@ struct TdoRun {
     struct TdoLog err;
     struct TdoLog status;
     TdoMonotoneTime start_time;
+
+#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     pid_t pid;
+#elif defined(_WIN32)
+#else
+    #error "Unknown platform"
+#endif
+
     bool active;
 };
 
@@ -123,8 +130,15 @@ void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, cha
 
 struct TdoRunStatus {
     struct TdoRun *runs;
+
+#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     struct pollfd *fds;
     size_t *fd_to_idx;
+#elif defined(_WIN32)
+#else
+    #error "Unknown platform"
+#endif
+
     size_t started;
     size_t finished;
     size_t running;
@@ -676,6 +690,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         goto error_setup;
     }
 
+#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     if (args.processes > SIZE_MAX / 3) return TDO_ERROR_MEMORY;
     status.fds = tdo_arena_alloc(arena, sizeof(struct pollfd), 3 * args.processes);
     if (status.fds == NULL) {
@@ -688,6 +703,10 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         result = TDO_ERROR_MEMORY;
         goto error_setup;
     }
+#elif defined(_WIN32)
+#else
+    #error "Unknown platform"
+#endif
     
     for (size_t i = 0; i < args.processes; i++) {
         status.runs[i] = (struct TdoRun) {
