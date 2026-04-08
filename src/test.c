@@ -84,7 +84,7 @@ enum TdoError tdo_read_line(struct TdoString *string, struct TdoArena *arena, FI
     while ((c = fgetc(file)) != EOF) {
         if (c == '\n') break;
 
-        char b = c;
+        char b = (char) c;
         if (!tdo_string_append(string, arena, 1, &b)) return TDO_ERROR_MEMORY;
     }
 
