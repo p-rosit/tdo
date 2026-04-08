@@ -1,25 +1,32 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void test_success(void) {
+
+#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
+    #define EXPORT
+#elif defined(_WIN32)
+    #define EXPORT __declspec(dllexport)
+#endif
+
+EXPORT void test_success(void) {
 }
 
-void test_success_with_stdout(void) {
+EXPORT void test_success_with_stdout(void) {
     fprintf(stdout, "Printed\n");
 }
 
-void test_success_with_other_stdout(void) {
+EXPORT void test_success_with_other_stdout(void) {
     fprintf(stdout, "other\n");
 }
 
-void test_success_with_stderr(void) {
+EXPORT void test_success_with_stderr(void) {
     fprintf(stderr, "Other thing\n");
 }
 
-void test_early_exit(void) {
+EXPORT void test_early_exit(void) {
     exit(4);
 }
 
-void test_aborts(void) {
+EXPORT void test_aborts(void) {
     abort();
 }
