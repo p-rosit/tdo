@@ -270,7 +270,6 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
     struct TdoArena *temp_arena = tdo_arena_init(1024);
     if (temp_arena == NULL) return TDO_ERROR_MEMORY;
 
-    int c;
     size_t line_number = 0;
     while (true) {
         line_number += 1;
