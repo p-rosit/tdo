@@ -78,7 +78,6 @@ enum TdoError tdo_array_append(struct TdoArray *array, struct TdoArena *arena, s
 }
 
 enum TdoError tdo_read_line(struct TdoString *string, struct TdoArena *arena, FILE *file) {
-    enum TdoError result = TDO_ERROR_UNKNOWN;
     *string = tdo_string_init();
 
     int c;
@@ -91,8 +90,6 @@ enum TdoError tdo_read_line(struct TdoString *string, struct TdoArena *arena, FI
 
     if (c == EOF && string->length == 0) return TDO_ERROR_FILE;
     return TDO_ERROR_OK;
-    error:
-    return result;
 }
 
 enum TdoError tdo_test_parse_file(struct TdoString *file, struct TdoString *line, char const *file_name, size_t line_number) {
