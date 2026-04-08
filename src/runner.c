@@ -1,8 +1,6 @@
 #define _XOPEN_SOURCE 600
 #include "run.c"
 #include <stdio.h>
-#include <dlfcn.h>
-#include <sys/stat.h>
 
 int main(int argc, char **argv) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
