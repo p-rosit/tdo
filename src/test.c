@@ -193,7 +193,7 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_test_parse_test(struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files) {
     int c;
     while (line->length > 0 && isspace(c = line->bytes[0])) {
         line->length -= 1;
@@ -282,7 +282,7 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         else if (result != TDO_ERROR_OK) goto error;
 
         struct TdoTest test;
-        result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files, tests);
+        result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files);
         if (result == TDO_ERROR_EOF || result == TDO_ERROR_PREFIX) {
             // not resetting the arena leaks memory but we might've seen a new
             // dynamic library for the first time so it's not safe to reset
