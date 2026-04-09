@@ -19,7 +19,7 @@
     typedef HANDLE TdoFileDescriptor;
     typedef HMODULE TdoLibrary;
 
-    typedef /* ??? */ TdoMonotoneTime;
+    typedef LARGE_INTEGER TdoMonotoneTime;
 
     typedef DWORD TdoProcessStatus;
     typedef DWORD TdoProcessCode;
