@@ -417,6 +417,25 @@ void tdo_assert_library_loaded(struct TdoFile *file, FILE *status) {
     }
 }
 
+TdoTestSymbol *tdo_symbol_get(struct TdoSymbol symbol, struct TdoArena *arena, char const *name, FILE *status) {
+    struct TdoArenaState state = tdo_arena_state_get(arena);
+
+    void (*s)(void) = tdo_dynamic_symbol_load(symbol.file->library, symbol.name.bytes);
+    char const *err = tdo_dynamic_get_error(arena);
+    if (err != NULL) {
+        tdo_status_error(status, "Could not load %s: %s\n", name, err);
+        fflush(NULL);
+        abort();
+    } else if (s == NULL) {
+        tdo_status_error(status, "Symbol is null\n");
+        fflush(NULL);
+        abort();
+    }
+    tdo_arena_state_set(arena, state);
+
+    return s;
+}
+
 void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct TdoArena *arena, FILE *status) {
     struct TdoArenaState state = tdo_arena_state_get(arena);
 
@@ -443,17 +462,7 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
 
             tdo_assert_library_loaded(fixture.symbol.file, status);
 
-            void (*fix)(void) = tdo_dynamic_symbol_load(fixture.symbol.file->library, fixture.symbol.name.bytes);
-            char const *err = tdo_dynamic_get_error(arena);
-            if (err != NULL) {
-                tdo_status_error(status, "Could not load fixture: %s\n", err);
-                fflush(NULL);
-                abort();
-            } else if (fix == NULL) {
-                tdo_status_error(status, "Symbol is null\n");
-                fflush(NULL);
-                abort();
-            }
+            void (*fix)(void) = tdo_symbol_get(fixture.symbol, arena, "fixture", status);
             fflush(NULL);
             fix();
         }
@@ -472,19 +481,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
     tdo_assert_library_loaded(test->symbol.file, status);
     
-    void (*t)(void) = tdo_dynamic_symbol_load(test->symbol.file->library, test->symbol.name.bytes);
-    struct TdoArenaState state = tdo_arena_state_get(arena);
-    char const *err = tdo_dynamic_get_error(arena);
-    if (err != NULL) {
-        tdo_status_error(status, "Could not load test: %s\n", err);
-        fflush(NULL);
-        abort();
-    } else if (t == NULL) {
-        tdo_status_error(status, "Symbol is null\n");
-        fflush(NULL);
-        abort();
-    }
-    tdo_arena_state_set(arena, state);
+    void (*t)(void) = tdo_symbol_get(test->symbol, arena, "test", status);
     fflush(NULL);
     t();
     
