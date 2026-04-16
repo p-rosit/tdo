@@ -7,7 +7,7 @@
     struct TdoOverlap {
         OVERLAPPED overlapped;
         struct TdoRun *run;
-        enum { TDO_PIPE_WAITING, TDO_PIPE_CONNECTED, TDO_PIPE_CLOSED } status;
+        enum { TDO_PIPE_WAITING, TDO_PIPE_CONNECTED, TDO_PIPE_CLOSED, TDO_PIPE_CANCELLING } status;
         enum { TDO_LOG_ERR, TDO_LOG_OUT, TDO_LOG_STATUS } kind;
         char buffer[1024];
     };
@@ -35,9 +35,25 @@ struct TdoRun {
     bool active;
 };
 
+#if defined(TDO_WINDOWS)
+    int tdo_run_pipes_cancelling(struct TdoRun *run) {
+        return (
+            (run->out_ov.status == TDO_PIPE_CANCELLING)
+            + (run->err_ov.status == TDO_PIPE_CANCELLING)
+            + (run->status_ov.status == TDO_PIPE_CANCELLING)
+        );
+    }
+#endif
+
 struct TdoRun *tdo_run_new(size_t length, struct TdoRun *runs) {
     for (size_t i = 0; i < length; i++) {
-        if (!runs[i].active) return &runs[i];
+        if (runs[i].active) continue;
+
+        #if defined(TDO_WINDOWS)
+            if (tdo_run_pipes_cancelling(&runs[i]) > 0) continue;
+        #endif
+
+        return &runs[i];
     }
     return NULL;
 }
