@@ -386,7 +386,15 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
     switch (kind) {
         case TDO_FIXTURE_BEFORE: prefix = 'b'; break;
         case TDO_FIXTURE_AFTER: prefix = 'a'; break;
-        default: abort();
+        default:
+            if (status != NULL) {
+                fprintf(status, "eInvalid fixture kind: %d\n", kind);
+                fflush(status);
+            } else {
+                fprintf(stderr, "Invalid fixture kind: %d\n", kind);
+                fflush(stderr);
+            }
+            abort();
     }
 
     struct TdoFixture *fixtures = test->fixtures.data;
