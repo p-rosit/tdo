@@ -68,13 +68,17 @@ def library(root_directory: str) -> Generator[str, None, None]:
     yield compiled_path
 
     os.remove(compiled_path)
+    if os.name == 'nt':
+        # msvc just barfs files wherever it pleases
+        os.remove(os.path.join(root_directory, f'{name}.exp'))
+        os.remove(os.path.join(root_directory, f'{name}.lib'))
 
 
 @pytest.fixture(scope='session')
 def runner(root_directory: str) -> Generator[str, None, None]:
     name = 'runner'
     source = f'{name}.c'
-    compiled = f'{name}'
+    compiled = executable(name)
 
     source_path = os.path.join(root_directory, '..', 'src', source)
     compiled_path = os.path.join(root_directory, compiled)
@@ -156,6 +160,10 @@ class ResultError(Result):
 class ResultDone(Result):
     stdout: str
     stderr: str
+
+    def __post_init__(self):
+        self.stdout = self.stdout.replace('\r\n', '\n')
+        self.stderr = self.stderr.replace('\r\n', '\n')
 
 
 @dataclasses.dataclass

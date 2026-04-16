@@ -1,6 +1,8 @@
-#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
+#include "platform/interface.h"
+
+#if defined(TDO_POSIX)
     #include "platform/posix.c"
-#elif defined(_WIN32)
+#elif defined(TDO_WINDOWS)
     #include "platform/windows.c"
 #else
     #error "Unknown platform"

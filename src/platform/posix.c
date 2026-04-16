@@ -1,4 +1,3 @@
-#define TDO_FILE_DESCRIPTOR int
 #include "interface.h"
 #include <errno.h>
 #include <stdio.h>
@@ -47,36 +46,24 @@ TdoMonotoneTime tdo_time_get(void) {
     return time;
 }
 
-struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path, struct TdoArena *arena) {
+struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path) {
     dlerror();
     void *handle = dlopen(path, RTLD_NOW);
-    char const *error = dlerror();
-    if (error != NULL) {
-        handle = NULL;
-    }
-
-    return (struct TdoLibraryLoadResult) {
-        .err = error,
-        .lib = handle,
-    };
+    return lib;
 }
 
 void tdo_dynamic_library_unload(TdoLibrary lib) {
     dlclose(lib);
 }
 
-struct TdoSymbolLoadResult tdo_dynamic_symbol_load(TdoLibrary lib, char const *name, struct TdoArena *arena) {
+TdoLibrary tdo_dynamic_symbol_load(TdoLibrary lib, char const *name) {
     dlerror();
     void *symbol = dlsym(lib, name);
-    char const *error = dlerror();
-    if (error != NULL) {
-        symbol = NULL;
-    }
+    return symbol;
+}
 
-    return (struct TdoSymbolLoadResult) {
-        .err = error,
-        .symbol = symbol,
-    };
+char const *tdo_dynamic_get_error(struct TdoArena *arena) {
+    return dlerror();
 }
 
 bool tdo_process_status_is_exit(TdoProcessStatus status) {

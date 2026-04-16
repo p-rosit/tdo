@@ -1,5 +1,6 @@
 #include "error.h"
 #include "string.c"
+#include <string.h>
 #include <ctype.h>
 
 struct TdoFile {
@@ -253,7 +254,7 @@ enum TdoError tdo_test_parse_fixture(struct TdoString *line, char const *file_na
     return tdo_array_append(&test->fixtures, arena, sizeof(struct TdoFixture), &fixture);
 }
 
-enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, char const *file_name, FILE *input_file, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, char const *file_name, FILE *input_file, char const *single_line, struct TdoArray *test_files, struct TdoArray *tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct {
         struct TdoArray test_files;
@@ -267,7 +268,7 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         .string_state = tdo_arena_state_get(string_arena),
     };
 
-    struct TdoArena *temp_arena = tdo_arena_init(1024);
+    struct TdoArena *temp_arena = tdo_arena_init(single_line == NULL ? 1024 : 1);
     if (temp_arena == NULL) return TDO_ERROR_MEMORY;
 
     size_t line_number = 0;
@@ -276,9 +277,14 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         tdo_arena_state_clear(temp_arena);
 
         struct TdoString line;
-        result = tdo_read_line(&line, temp_arena, input_file);
-        if (result == TDO_ERROR_FILE) break;
-        else if (result != TDO_ERROR_OK) goto error;
+        if (single_line == NULL) {
+            result = tdo_read_line(&line, temp_arena, input_file);
+            if (result == TDO_ERROR_FILE) break;
+            else if (result != TDO_ERROR_OK) goto error;
+        } else {
+            if (line_number > 1) break;
+            line = (struct TdoString) { .bytes=(char*) single_line, .length=strlen(single_line) };
+        }
 
         struct TdoTest test;
         result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files);

@@ -21,7 +21,22 @@ int main(int argc, char **argv) {
         result = TDO_ERROR_MEMORY;
         goto error_init_string_arena;
     }
+    
+    FILE *status = NULL;
+    if (args.internal_status != NULL) {
+        errno = 0;
+        status = fopen(args.internal_status, "wb");
+        if (errno != 0) {
+            perror("Could not open status pipe");
+            goto error_open_status;
+        }
+    }
+    if (args.internal_status != NULL && status == NULL) {
+        fprintf(stderr, "Unknown error, could not open status pipe\n");
+        goto error_open_status;
+    }
 
+    char const *file_name;
     FILE *input = stdin;
     if (args.test_file != NULL) {
         errno = 0;
@@ -35,60 +50,111 @@ int main(int argc, char **argv) {
             result = TDO_ERROR_FILE;
             goto error_open_input;
         }
+        file_name = args.test_file;
+    } else if (args.single_test) {
+        if (args.internal_status == NULL) fprintf(stderr, "Reading test from command line\n");
+        file_name = "<cmd>";
     } else {
-        fprintf(stderr, "Reading tests from stdin:\n");
+        if (args.internal_status == NULL) fprintf(stderr, "Reading tests from stdin:\n");
+        file_name = "<stdin>";
     }
 
     FILE *output = stdout;
     if (args.output != NULL) {
         errno = 0;
-        int output_fd = open(args.output, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        output = fopen(args.output, "wb");
         if (errno != 0) {
             perror("Could not open output");
             result = TDO_ERROR_FILE;
             goto error_open_output;
-        } else if (output_fd == -1) {
+        } else if (output == NULL) {
             fprintf(stderr, "Could not open output file, unknown error\n");
             result = TDO_ERROR_FILE;
             goto error_open_output;
         }
 
-        errno = 0;
-        output = fdopen(output_fd, "wb");
-        if (errno != 0) {
-            close(output_fd);
-            perror("Could not create output file from file descriptor");
-            result = TDO_ERROR_FILE;
-            goto error_open_output;
-        } else if (output == NULL) {
-            close(output_fd);
-            fprintf(stderr, "Could not create output file from file descriptor, unknown error\n");
-            result = TDO_ERROR_FILE;
-            goto error_open_output;
-        }
+        // errno = 0;
+        // int output_fd = open(args.output, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        // if (errno != 0) {
+        //     perror("Could not open output");
+        //     result = TDO_ERROR_FILE;
+        //     goto error_open_output;
+        // } else if (output_fd == -1) {
+        //     fprintf(stderr, "Could not open output file, unknown error\n");
+        //     result = TDO_ERROR_FILE;
+        //     goto error_open_output;
+        // }
+
+        // errno = 0;
+        // output = fdopen(output_fd, "wb");
+        // if (errno != 0) {
+        //     close(output_fd);
+        //     perror("Could not create output file from file descriptor");
+        //     result = TDO_ERROR_FILE;
+        //     goto error_open_output;
+        // } else if (output == NULL) {
+        //     close(output_fd);
+        //     fprintf(stderr, "Could not create output file from file descriptor, unknown error\n");
+        //     result = TDO_ERROR_FILE;
+        //     goto error_open_output;
+        // }
     }
 
     struct TdoArray test_files = tdo_array_init();
     struct TdoArray tests = tdo_array_init();
-    result = tdo_input_parse(arena, string_arena, args.test_file != NULL ? args.test_file : "<stdin>", input, &test_files, &tests);
-    if (result != TDO_ERROR_OK) goto error_parse_input;
+    {
+        result = tdo_input_parse(arena, string_arena, file_name, input, args.single_test, &test_files, &tests);
+        if (result != TDO_ERROR_OK) goto error_parse_input;
+
+        if (args.single_test != NULL) {
+            if (tests.length < 1) {
+                fprintf(stderr, "Could not load single test\n");
+                goto error_parse_input;
+            } else if (tests.length > 1) {
+                fprintf(stderr, "Somehow loaded more than one tests when only running one???\n");
+                goto error_parse_input;
+            }
+        }
+    }
+
+    // fprintf(stderr, "Running tests:\n");
+    // struct TdoTest *ts = tests.data;
+    // for (size_t i = 0; i < tests.length; i++) {
+    //     fprintf(stderr, "\t%s::%s\n", ts[i].symbol.file->name.bytes, ts[i].symbol.name.bytes);
+
+    //     fprintf(stderr, "\t\tBefore:\n");
+    //     struct TdoFixture *fs = ts[i].fixtures.data;
+    //     for (size_t j = 0; j < ts[i].fixtures.length; j++) {
+    //         if (fs[j].kind == TDO_FIXTURE_BEFORE) {
+    //             fprintf(stderr, "\t\t\t%s::%s\n", fs[j].symbol.file->name.bytes, fs[j].symbol.name.bytes);
+    //         }
+    //     }
+        
+    //     fprintf(stderr, "\t\tAfter:\n");
+    //     for (size_t j = 0; j < ts[i].fixtures.length; j++) {
+    //         if (fs[j].kind == TDO_FIXTURE_AFTER) {
+    //             fprintf(stderr, "\t\t\t%s::%s\n", fs[j].symbol.file->name.bytes, fs[j].symbol.name.bytes);
+    //         }
+    //     }
+    // }
 
     struct TdoArenaState state = tdo_arena_state_get(arena);
     struct TdoFile *files = (struct TdoFile*) test_files.data;
     for (size_t i = 0; i < test_files.length; i++) {
         tdo_arena_state_set(arena, state);
 
-        struct TdoLibraryLoadResult result = tdo_dynamic_library_load(files[i].name.bytes, arena);
-        if (result.err != NULL) {
-            fprintf(stderr, "%s\n", result.err);
-            files[i].library = NULL;
-        } else {
-            files[i].library = result.lib;
-        }
+        files[i].library = tdo_dynamic_library_load(files[i].name.bytes);
+        char const *err = tdo_dynamic_get_error(arena);
+        if (err != NULL) fprintf(stderr, "%s\n", err);
     }
     tdo_arena_state_set(arena, state);
 
-    result = tdo_run_all(args, output, arena, tests);
+    if (args.single_test == NULL) {
+        result = tdo_run_all(args, output, arena, tests);
+    } else {
+        struct TdoTest *test = tests.data;
+        tdo_run_single(test, arena, status);
+    }
 
     for (size_t i = 0; i < test_files.length; i++) {
         if (files[i].library == NULL) continue;
@@ -99,6 +165,8 @@ int main(int argc, char **argv) {
     error_open_output:
     if (input != stdin) fclose(input);
     error_open_input:
+    if (status != NULL) fclose(status);
+    error_open_status:
     tdo_arena_deinit(string_arena);
     error_init_string_arena:
     tdo_arena_deinit(arena);

@@ -9,18 +9,20 @@
 
 struct TdoArguments {
     size_t processes;
-    bool debug_one;
+    char const *single_test;
     char const *test_file;
     char const *output;
+    char const *internal_status;
 };
 
 enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **argv) {
     enum TdoError result = TDO_ERROR_OK;
     *args = (struct TdoArguments) {
         .processes = 1,
-        .debug_one = false,
+        .single_test = NULL,
         .test_file = NULL,
         .output = NULL,
+        .internal_status = NULL,
     };
 
     if (argc < 1) return TDO_ERROR_ARG_FIRST;
@@ -39,8 +41,14 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
             }
         } else {
             // flag
-            if (strncmp(s, "-g", 3) == 0) {
-                args->debug_one = true;
+            if (strncmp(s, "-t", 3) == 0) {
+                if (argc <= 1) {
+                    fprintf(stderr, "Missing test argument to '-t'\n");
+                    result = TDO_ERROR_ARG_PARSE;
+                } else {
+                    argc -= 1; argv += 1;
+                    args->single_test = argv[0];
+                }
             } else if (strncmp(s, "-j", 2) == 0) {
                 errno = 0;
                 char *err;
@@ -68,6 +76,14 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->output = argv[0];
                 }
+            } else if (strncmp(s, "--internal-status", 18) == 0) {
+                if (argc <= 1) {
+                    fprintf(stderr, "Missing status file\n");
+                    result = TDO_ERROR_ARG_PARSE;
+                } else {
+                    argc -= 1; argv += 1;
+                    args->internal_status = argv[0];
+                }
             } else {
                 fprintf(stderr, "Unrecognized argument: '%s'\n", s);
                 result = TDO_ERROR_ARG_PARSE;
@@ -75,6 +91,11 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         }
 
         argc -= 1; argv += 1;
+    }
+
+    if (args->test_file != NULL && args->single_test != NULL) {
+        fprintf(stderr, "Only specify an input file or a single test to run, not both\n");
+        result = TDO_ERROR_ARG_PARSE;
     }
 
     return result;

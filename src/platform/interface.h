@@ -3,9 +3,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "../error.h"
+#include "../arena.h"
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
+    #define TDO_POSIX
     typedef int TdoFileDescriptor;
+    #define TDO_FILE_DESCRIPTOR_INVALID (-1)
+
     typedef void* TdoLibrary;
 
     typedef struct timespec TdoMonotoneTime;
@@ -14,9 +18,12 @@
     typedef int TdoProcessCode;
     #define TDO_PROCESS_CODE_FORMAT "%d"
 #elif defined(_WIN32)
+    #define TDO_WINDOWS
     #include <windows.h>
 
     typedef HANDLE TdoFileDescriptor;
+    #define TDO_FILE_DESCRIPTOR_INVALID (INVALID_HANDLE_VALUE)
+
     typedef HMODULE TdoLibrary;
 
     typedef LARGE_INTEGER TdoMonotoneTime;
@@ -39,22 +46,12 @@ void tdo_write_fd(TdoFileDescriptor fd, size_t size, char const *data);
 
 TdoMonotoneTime tdo_time_get(void);
 
-struct TdoLibraryLoadResult {
-    char const *err;
-    TdoLibrary lib;
-};
+typedef void TdoTestSymbol(void);
 
-struct TdoArena;
-
-struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path, struct TdoArena *arena);
+TdoLibrary tdo_dynamic_library_load(char const *path);
 void tdo_dynamic_library_unload(TdoLibrary lib);
-
-struct TdoSymbolLoadResult {
-    char const *err;
-    void *symbol;
-};
-
-struct TdoSymbolLoadResult tdo_dynamic_symbol_load(TdoLibrary lib, char const *name, struct TdoArena *arena);
+TdoTestSymbol *tdo_dynamic_symbol_load(TdoLibrary lib, char const *name);
+char const *tdo_dynamic_get_error(struct TdoArena *arena);
 
 bool tdo_process_status_is_exit(TdoProcessStatus status);
 bool tdo_process_status_is_signal(TdoProcessStatus status);
