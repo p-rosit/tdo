@@ -395,15 +395,25 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
     return;
 }
 
+void tdo_status_error(FILE *file, char const *fmt, ...) {
+    FILE *f = file;
+    if (file == NULL) {
+        f = stderr;
+    } else {
+        fprintf(f, "e");
+    }
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+
+    fflush(f);
+}
+
 void tdo_assert_library_loaded(struct TdoFile *file, FILE *status) {
     if (file->library == NULL) {
-        if (status != NULL) {
-            fprintf(status, "eCould not load library: %s\n", file->name.bytes);
-            fflush(status);
-        } else {
-            fprintf(stderr, "Could not load library: %s\n", file->name.bytes);
-            fflush(stderr);
-        }
+        tdo_status_error(status, "Could not load library: %s\n", file->name.bytes);
         abort();
     }
 }
@@ -416,13 +426,7 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
         case TDO_FIXTURE_BEFORE: prefix = 'b'; break;
         case TDO_FIXTURE_AFTER: prefix = 'a'; break;
         default:
-            if (status != NULL) {
-                fprintf(status, "eInvalid fixture kind: %d\n", kind);
-                fflush(status);
-            } else {
-                fprintf(stderr, "Invalid fixture kind: %d\n", kind);
-                fflush(stderr);
-            }
+            tdo_status_error(status, "Invalid fixture kind: %d\n", kind);
             abort();
     }
 
@@ -442,22 +446,10 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
             void (*fix)(void) = tdo_dynamic_symbol_load(fixture.symbol.file->library, fixture.symbol.name.bytes);
             char const *err = tdo_dynamic_get_error(arena);
             if (err != NULL) {
-                if (status != NULL) {
-                    fprintf(status, "eCould not load fixture: %s\n", err);
-                    fflush(status);
-                } else {
-                    fprintf(stderr, "Could not load fixture: %s\n", err);
-                    fflush(stderr);
-                }
+                tdo_status_error(status, "Could not load fixture: %s\n", err);
                 abort();
             } else if (fix == NULL) {
-                if (status != NULL) {
-                    fprintf(status, "eSymbol is null\n");
-                    fflush(status);
-                } else {
-                    fprintf(stderr, "Symbol is null\n");
-                    fflush(stderr);
-                }
+                tdo_status_error(status, "Symbol is null\n");
                 abort();
             }
             fix();
@@ -482,22 +474,10 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     struct TdoArenaState state = tdo_arena_state_get(arena);
     char const *err = tdo_dynamic_get_error(arena);
     if (err != NULL) {
-        if (status != NULL) {
-            fprintf(status, "eCould not load test: %s\n", err);
-            fflush(status);
-        } else {
-            fprintf(stderr, "Could not load test: %s\n", err);
-            fflush(stderr);
-        }
+        tdo_status_error(status, "Could not load test: %s\n", err);
         abort();
     } else if (t == NULL) {
-        if (status != NULL) {
-            fprintf(status, "eSymbol is null\n");
-            fflush(status);
-        } else {
-            fprintf(stderr, "Symbol is null\n");
-            fflush(stderr);
-        }
+        tdo_status_error(status, "Symbol is null\n");
         abort();
     }
     tdo_arena_state_set(arena, state);
