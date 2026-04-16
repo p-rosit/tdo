@@ -407,13 +407,12 @@ void tdo_status_error(FILE *file, char const *fmt, ...) {
     va_start(args, fmt);
     vfprintf(f, fmt, args);
     va_end(args);
-
-    fflush(f);
 }
 
 void tdo_assert_library_loaded(struct TdoFile *file, FILE *status) {
     if (file->library == NULL) {
         tdo_status_error(status, "Could not load library: %s\n", file->name.bytes);
+        fflush(NULL);
         abort();
     }
 }
@@ -427,6 +426,7 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
         case TDO_FIXTURE_AFTER: prefix = 'a'; break;
         default:
             tdo_status_error(status, "Invalid fixture kind: %d\n", kind);
+            fflush(NULL);
             abort();
     }
 
@@ -447,11 +447,14 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
             char const *err = tdo_dynamic_get_error(arena);
             if (err != NULL) {
                 tdo_status_error(status, "Could not load fixture: %s\n", err);
+                fflush(NULL);
                 abort();
             } else if (fix == NULL) {
                 tdo_status_error(status, "Symbol is null\n");
+                fflush(NULL);
                 abort();
             }
+            fflush(NULL);
             fix();
         }
     }
@@ -465,7 +468,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     // do the test
     if (status != NULL) {
         fprintf(status, "test\n");
-        fflush(status);
     }
 
     tdo_assert_library_loaded(test->symbol.file, status);
@@ -475,12 +477,15 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     char const *err = tdo_dynamic_get_error(arena);
     if (err != NULL) {
         tdo_status_error(status, "Could not load test: %s\n", err);
+        fflush(NULL);
         abort();
     } else if (t == NULL) {
         tdo_status_error(status, "Symbol is null\n");
+        fflush(NULL);
         abort();
     }
     tdo_arena_state_set(arena, state);
+    fflush(NULL);
     t();
     
     // run after fixtures
@@ -488,7 +493,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
     if (status != NULL) {
         fprintf(status, "finished\n");
-        fflush(status);
     }
 }
 
@@ -716,7 +720,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             case TDO_LOG_OUT: log = &run->out; break;
             case TDO_LOG_ERR: log = &run->err; break;
             case TDO_LOG_STATUS: log = &run->status; break;
-            default: fprintf(stderr, "Invalid enum value: %d\n", overlap->kind); abort();
+            default: fprintf(stderr, "Invalid enum value: %d\n", overlap->kind); fflush(NULL); abort();
         }
 
         ZeroMemory(&overlap->overlapped, sizeof(overlap->overlapped));
@@ -726,7 +730,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         DWORD code = GetLastError();
         if (connected || code == ERROR_PIPE_CONNECTED || code == ERROR_BROKEN_PIPE || code == ERROR_NO_DATA) {
             fprintf(stderr, "Unexpected connection while connecting pipe, got windows error code: %ld\n", code);
-            fflush(stderr);
+            fflush(NULL);
             abort();
         } else if (code == ERROR_IO_PENDING) {
             // waiting for IOCP packet
@@ -749,6 +753,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         char out_buffer[TDO_MAX_PIPE_NAME_LENGTH];
         if (tdo_run_unique_pipe_name(&out_name, sizeof(out_buffer), out_buffer, "out", status->running, status->pid, ticks) != TDO_ERROR_OK) {
             fprintf(stderr, "Failed to format out pipe name\n");
+            fflush(NULL);
             abort();
         }
 
@@ -756,6 +761,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         char err_buffer[TDO_MAX_PIPE_NAME_LENGTH];
         if (tdo_run_unique_pipe_name(&err_name, sizeof(err_buffer), err_buffer, "err", status->running, status->pid, ticks) != TDO_ERROR_OK) {
             fprintf(stderr, "Failed to format err pipe name\n");
+            fflush(NULL);
             abort();
         }
         
@@ -763,6 +769,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         char status_buffer[TDO_MAX_PIPE_NAME_LENGTH];
         if (tdo_run_unique_pipe_name(&status_name, sizeof(status_buffer), status_buffer, "status", status->running, status->pid, ticks) != TDO_ERROR_OK) {
             fprintf(stderr, "Failed to format status pipe name\n");
+            fflush(NULL);
             abort();
         }
 
@@ -791,6 +798,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
         if (GetLastError()) {
             fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+            fflush(NULL);
             abort();
         }
         
@@ -806,6 +814,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
         if (GetLastError()) {
             fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+            fflush(NULL);
             abort();
         }
         
@@ -821,6 +830,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
         if (GetLastError()) {
             fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+            fflush(NULL);
             abort();
         }
 
@@ -847,7 +857,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 switch (fixture.kind) {
                     case TDO_FIXTURE_BEFORE: if (!(could_build = tdo_string_append(&command, arena, 6, "before"))) goto error_build_command; break;
                     case TDO_FIXTURE_AFTER: if (!(could_build = tdo_string_append(&command, arena, 5, "after"))) goto error_build_command; break;
-                    default: fprintf(stderr, "Invalid fixture kind: %d\n", fixture.kind); abort();
+                    default: fprintf(stderr, "Invalid fixture kind: %d\n", fixture.kind); fflush(NULL); abort();
                 }
 
                 if (!(could_build = tdo_string_append(&command, arena, 2, "::"))) goto error_build_command;
@@ -1007,6 +1017,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     break;
                 default:
                     fprintf(stderr, "Invalid log type\n");
+                    fflush(NULL);
                     abort();
             }
 
@@ -1023,6 +1034,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         ov->status = TDO_PIPE_CLOSED;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
+                        fflush(NULL);
                         abort();
                     }
                 }
@@ -1057,6 +1069,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         ov->status = TDO_PIPE_CLOSED;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
+                        fflush(NULL);
                         abort();
                     }
                 }
@@ -1075,12 +1088,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 ov->status = TDO_PIPE_CLOSED;
             } else {
                 fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+                fflush(NULL);
                 abort();
             }
         } else if (code == 258) {
             // timed out
         } else {
             fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+            fflush(NULL);
             abort();
         }
     }
@@ -1096,6 +1111,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             DWORD return_status;
             if (!GetExitCodeProcess(run->process_handle, &return_status)) {
                 fprintf(stderr, "Get exit code failed somehow... TODO: graceful exit\n");
+                fflush(NULL);
                 abort();
             }
 
@@ -1114,6 +1130,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             status->finished += 1;
         } else {
             fprintf(stderr, "Wait for process failed somehow... TODO: graceful exit\n");
+            fflush(NULL);
             abort();
         }
     }
@@ -1170,9 +1187,11 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         DWORD length = GetModuleFileNameA(NULL, (LPSTR) &exe_name, sizeof(exe_name));
         if (length == 0) {
             fprintf(stderr, "Could not get executable name: %lu\n", GetLastError());
+            fflush(NULL);
             abort();
         } else if (length >= sizeof(exe_name)) {
             fprintf(stderr, "Could not get executable name, buffer too small\n");
+            fflush(NULL);
             abort();
         }
         status.executable_name = (struct TdoString) { .bytes=exe_name, .length=length };
@@ -1227,6 +1246,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             struct TdoRun *run = tdo_run_new(args.processes, status.runs);
             if (run == NULL) {
                 fprintf(stderr, "could not start new test run, all test runs are active\n");
+                fflush(NULL);
                 abort();
             }
             status.started += 1;
