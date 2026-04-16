@@ -739,10 +739,9 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             abort();
         } else if (code == ERROR_IO_PENDING) {
             // waiting for IOCP packet
-            // fprintf(stderr, "Not yet connected\n");
         } else {
-            fprintf(stderr, "TODO1: fail gracefully %ld '%s'\n", code, tdo_dynamic_get_error(arena));
-            abort();
+            fprintf(stderr, "Could not connect pipe, got windows error code: %ld\n", code);
+            return TDO_ERROR_OS;
         }
 
         return TDO_ERROR_OK;
@@ -914,6 +913,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
+            status->log_setup_failed = true;
             return;
         }
 
@@ -921,6 +921,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
+            status->log_setup_failed = true;
             return;
         }
 
@@ -928,6 +929,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
+            status->log_setup_failed = true;
             return;
         }
         
