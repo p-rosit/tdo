@@ -395,6 +395,19 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
     return;
 }
 
+void tdo_assert_library_loaded(struct TdoFile *file, FILE *status) {
+    if (file->library == NULL) {
+        if (status != NULL) {
+            fprintf(status, "eCould not load library: %s\n", file->name.bytes);
+            fflush(status);
+        } else {
+            fprintf(stderr, "Could not load library: %s\n", file->name.bytes);
+            fflush(stderr);
+        }
+        abort();
+    }
+}
+
 void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct TdoArena *arena, FILE *status) {
     struct TdoArenaState state = tdo_arena_state_get(arena);
 
@@ -424,16 +437,7 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
                 fflush(status);
             }
 
-            if (fixture.symbol.file->library == NULL) {
-                if (status != NULL) {
-                    fprintf(status, "eCould not load library: %s\n", fixture.symbol.file->name.bytes);
-                    fflush(status);
-                } else {
-                    fprintf(stderr, "Could not load library: %s\n", fixture.symbol.file->name.bytes);
-                    fflush(stderr);
-                }
-                abort();
-            }
+            tdo_assert_library_loaded(fixture.symbol.file, status);
 
             void (*fix)(void) = tdo_dynamic_symbol_load(fixture.symbol.file->library, fixture.symbol.name.bytes);
             char const *err = tdo_dynamic_get_error(arena);
@@ -472,16 +476,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         fflush(status);
     }
 
-    if (test->symbol.file->library == NULL) {
-        if (status != NULL) {
-            fprintf(status, "eCould not load library: %s\n", test->symbol.file->name.bytes);
-            fflush(status);
-        } else {
-            fprintf(stderr, "Could not load library: %s\n", test->symbol.file->name.bytes);
-            fflush(stderr);
-        }
-        abort();
-    }
+    tdo_assert_library_loaded(test->symbol.file, status);
     
     void (*t)(void) = tdo_dynamic_symbol_load(test->symbol.file->library, test->symbol.name.bytes);
     struct TdoArenaState state = tdo_arena_state_get(arena);
