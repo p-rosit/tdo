@@ -908,7 +908,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR)&run->err_ov, 0);
         CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR)&run->status_ov, 0);
 
-        // Start first read
+        // Start opening connection
         enum TdoError err_read = tdo_pipe_connect(arena, status, run, &run->out_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
