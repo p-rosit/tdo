@@ -733,11 +733,9 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
         BOOL connected = ConnectNamedPipe(log->fd, &overlap->overlapped);
         DWORD code = GetLastError();
-        if (connected || code == ERROR_PIPE_CONNECTED || code == ERROR_BROKEN_PIPE || code == 232) {
-            overlap->status = TDO_PIPE_CONNECTED;
-            // now read
-            fprintf(stderr, "CONNECTED: %ld '%s'\n", code, tdo_dynamic_get_error(arena));
-            // ReadFile(log->fd, overlap->buffer, sizeof(overlap->buffer), NULL, &overlap->overlapped);
+        if (connected || code == ERROR_PIPE_CONNECTED || code == ERROR_BROKEN_PIPE || code == ERROR_NO_DATA) {
+            fprintf(stderr, "Unexpected connection while connecting pipe, got windows error code: %ld\n", code);
+            fflush(stderr);
             abort();
         } else if (code == ERROR_IO_PENDING) {
             // waiting for IOCP packet
