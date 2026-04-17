@@ -732,7 +732,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
     void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoTest *test, struct TdoRun *run) {
         struct TdoArenaState state = tdo_arena_state_get(arena);
-        // fprintf(stderr, "Starting test: '%s'\n", test->symbol.name.bytes);
 
         struct TdoString command = tdo_string_init();
         {
