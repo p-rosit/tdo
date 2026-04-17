@@ -1296,7 +1296,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not fork process", -1.0);
+                tdo_run_report_error(ts[i], output, NULL, "could not create child process", -1.0);
                 status.finished += 1;
             }
         } else if (status.running == 0 && status.log_setup_failed) {
