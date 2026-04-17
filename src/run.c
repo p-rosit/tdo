@@ -1269,7 +1269,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         while (status.running < args.processes && status.started < tests.length && !status.fork_failed && !status.log_setup_failed) {
             fflush(stdout);
             fflush(output);
-            fflush(stderr); // normally unbuffered, but it could be buffered
+            fflush(stderr);
 
             struct TdoTest *test = &((struct TdoTest*) tests.data)[status.started];
             struct TdoRun *run = tdo_run_new(args.processes, status.runs);
