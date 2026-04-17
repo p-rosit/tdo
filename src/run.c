@@ -1040,7 +1040,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         }
 
         *name = tdo_string_init();
-        tdo_string_append(name, arena, total_written, buffer);
+        if (!tdo_string_append(name, arena, total_written, buffer)) return TDO_ERROR_MEMORY;
         return TDO_ERROR_OK;
     }
 #else
@@ -1143,24 +1143,21 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             ULONGLONG ticks = GetTickCount64();
 
             struct TdoString out_name;
-            if (tdo_run_unique_pipe_name(&out_name, arena, "out", i, pid, ticks) != TDO_ERROR_OK) {
+            if ((result = tdo_run_unique_pipe_name(&out_name, arena, "out", i, pid, ticks)) != TDO_ERROR_OK) {
                 fprintf(stderr, "Failed to format out pipe name\n");
-                fflush(NULL);
-                abort();
+                goto error_named_pipe_setup;
             }
 
             struct TdoString err_name;
-            if (tdo_run_unique_pipe_name(&err_name, arena, "err", i, pid, ticks) != TDO_ERROR_OK) {
+            if ((result = tdo_run_unique_pipe_name(&err_name, arena, "err", i, pid, ticks)) != TDO_ERROR_OK) {
                 fprintf(stderr, "Failed to format err pipe name\n");
-                fflush(NULL);
-                abort();
+                goto error_named_pipe_setup;
             }
 
             struct TdoString status_name;
-            if (tdo_run_unique_pipe_name(&status_name, arena, "status", i, pid, ticks) != TDO_ERROR_OK) {
+            if ((result = tdo_run_unique_pipe_name(&status_name, arena, "status", i, pid, ticks)) != TDO_ERROR_OK) {
                 fprintf(stderr, "Failed to format status pipe name\n");
-                fflush(NULL);
-                abort();
+                goto error_named_pipe_setup;
             }
 
             SECURITY_ATTRIBUTES sa;
