@@ -458,10 +458,7 @@ void tdo_run_fixtures(struct TdoTest *test, enum TdoFixtureKind kind, struct Tdo
 
         struct TdoFixture fixture = fixtures[i];
         if (fixture.kind == kind) {
-            if (status != NULL) {
-                fprintf(status, "%c_%zu\n", prefix, index++);
-                fflush(status);
-            }
+            if (status != NULL) fprintf(status, "%c_%zu\n", prefix, index++);
 
             tdo_assert_library_loaded(fixture.symbol.file, status);
 
@@ -478,9 +475,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     tdo_run_fixtures(test, TDO_FIXTURE_BEFORE, arena, status);
 
     // do the test
-    if (status != NULL) {
-        fprintf(status, "test\n");
-    }
+    if (status != NULL) fprintf(status, "test\n");
 
     tdo_assert_library_loaded(test->symbol.file, status);
     
@@ -491,9 +486,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     // run after fixtures
     tdo_run_fixtures(test, TDO_FIXTURE_AFTER, arena, status);
 
-    if (status != NULL) {
-        fprintf(status, "finished\n");
-    }
+    if (status != NULL) fprintf(status, "finished\n");
 }
 
 #if defined(TDO_POSIX)
