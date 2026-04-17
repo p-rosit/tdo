@@ -1310,6 +1310,12 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     result = TDO_ERROR_OK;
 
     #if defined(TDO_WINDOWS)
+        for (size_t i = 0; i < args.processes; i++) {
+            struct TdoRun run = status.runs[i];
+            CloseHandle(run.out.fd);
+            CloseHandle(run.err.fd);
+            CloseHandle(run.status.fd);
+        }
         error_job_settings:
         CloseHandle(status.job);
         error_job_setup:
