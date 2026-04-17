@@ -713,13 +713,13 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         BOOL connected = ConnectNamedPipe(log->fd, &overlap->overlapped);
         DWORD code = GetLastError();
         if (connected || code == ERROR_PIPE_CONNECTED || code == ERROR_BROKEN_PIPE || code == ERROR_NO_DATA) {
-            fprintf(stderr, "Unexpected connection while connecting pipe, got windows error code: %ld\n", code);
+            fprintf(stderr, "Unexpected connection while connecting pipe, got windows error code: %lu\n", code);
             fflush(NULL);
             abort();
         } else if (code == ERROR_IO_PENDING) {
             // waiting for IOCP packet
         } else {
-            fprintf(stderr, "Could not connect pipe, got windows error code: %ld\n", code);
+            fprintf(stderr, "Could not connect pipe, got windows error code: %lu\n", code);
             return TDO_ERROR_OS;
         }
 
