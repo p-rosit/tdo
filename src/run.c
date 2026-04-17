@@ -1128,6 +1128,10 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         }
 
         QueryPerformanceFrequency(&status.clock_frequency);
+
+        for (size_t i = 0; i < args.processes; i++) {
+            status.runs[i].active = true; // use `true` to signal whether pipes have been set up or not
+        }
     #else
         #error "Unknown platform"
     #endif
@@ -1176,9 +1180,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 &sa                                    // Cannot be inherited
             );
             if (GetLastError()) {
-                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-                fflush(NULL);
-                abort();
+                fprintf(stderr, "Could not open out pipe: %lu\n", GetLastError());
+                result = TDO_ERROR_OS;
+                goto error_named_pipe_setup;
             }
 
             HANDLE h_err = CreateNamedPipe(
@@ -1192,9 +1196,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 &sa                                    // Cannot be inherited
             );
             if (GetLastError()) {
-                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-                fflush(NULL);
-                abort();
+                fprintf(stderr, "Could not open err pipe: %lu\n", GetLastError());
+                result = TDO_ERROR_OS;
+                goto error_named_pipe_setup;
             }
 
             HANDLE h_status = CreateNamedPipe(
@@ -1208,9 +1212,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 &sa                                    // Cannot be inherited
             );
             if (GetLastError()) {
-                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-                fflush(NULL);
-                abort();
+                fprintf(stderr, "Could not open status pipe: %lu\n", GetLastError());
+                result = TDO_ERROR_OS;
+                goto error_named_pipe_setup;
             }
         #endif
 
@@ -1315,6 +1319,18 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             CloseHandle(run.err.fd);
             CloseHandle(run.status.fd);
         }
+
+        if (false) { // only used for error cleanup
+            error_named_pipe_setup:
+            for (size_t i = 0; i < args.processes; i++) {
+                struct TdoRun run = status.runs[i];
+                if (!run.active) continue; // active used to signal whether pipes have been set up or not
+                CloseHandle(run.out.fd);
+                CloseHandle(run.err.fd);
+                CloseHandle(run.status.fd);
+            }
+        }
+
         error_job_settings:
         CloseHandle(status.job);
         error_job_setup:
