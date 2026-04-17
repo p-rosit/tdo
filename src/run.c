@@ -25,6 +25,9 @@ struct TdoRun {
     #elif defined(TDO_WINDOWS)
         DWORD pid;
         HANDLE process_handle;
+        struct TdoString out_name;
+        struct TdoString err_name;
+        struct TdoString status_name;
         struct TdoOverlap out_ov;
         struct TdoOverlap err_ov;
         struct TdoOverlap status_ov;
@@ -687,22 +690,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         }
     }
 #elif defined(TDO_WINDOWS)
-    // longest pipe name: \\.\pipe\tdo_pipe_AAAAAA_18446744073709551615_4294967296_18446744073709551615
-    #define TDO_MAX_PIPE_NAME_LENGTH (78)
-
-    enum TdoError tdo_run_unique_pipe_name(struct TdoString *name, size_t length, char *buffer, char const *prefix, size_t index, DWORD pid, ULONGLONG ticks) {
-        errno = 0;
-        int total_written = snprintf(buffer, length - 1, "\\\\.\\pipe\\tdo_pipe_%s_%zu_%lu_%llu", prefix, index, pid, ticks);
-        if (total_written >= length) return TDO_ERROR_MEMORY; // buffer too small
-        if (total_written < 0) {
-            perror("Could not write unique name");
-            return TDO_ERROR_UNKNOWN;
-        }
-        name->bytes = buffer;
-        name->length = total_written;
-        return TDO_ERROR_OK;
-    }
-
     int tdo_run_pipes_pending(struct TdoRun *run) {
         return (
             (run->out_ov.status != TDO_PIPE_CLOSED)
@@ -739,97 +726,13 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         return TDO_ERROR_OK;
     }
 
+    void tdo_run_kill(struct TdoRun *run) {
+        
+    }
+
     void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoTest *test, struct TdoRun *run) {
         struct TdoArenaState state = tdo_arena_state_get(arena);
         // fprintf(stderr, "Starting test: '%s'\n", test->symbol.name.bytes);
-
-        // open named pipes: stdout/stderr/status
-        ULONGLONG ticks = GetTickCount64();
-        
-        struct TdoString out_name;
-        char out_buffer[TDO_MAX_PIPE_NAME_LENGTH];
-        if (tdo_run_unique_pipe_name(&out_name, sizeof(out_buffer), out_buffer, "out", status->running, status->pid, ticks) != TDO_ERROR_OK) {
-            fprintf(stderr, "Failed to format out pipe name\n");
-            fflush(NULL);
-            abort();
-        }
-
-        struct TdoString err_name;
-        char err_buffer[TDO_MAX_PIPE_NAME_LENGTH];
-        if (tdo_run_unique_pipe_name(&err_name, sizeof(err_buffer), err_buffer, "err", status->running, status->pid, ticks) != TDO_ERROR_OK) {
-            fprintf(stderr, "Failed to format err pipe name\n");
-            fflush(NULL);
-            abort();
-        }
-        
-        struct TdoString status_name;
-        char status_buffer[TDO_MAX_PIPE_NAME_LENGTH];
-        if (tdo_run_unique_pipe_name(&status_name, sizeof(status_buffer), status_buffer, "status", status->running, status->pid, ticks) != TDO_ERROR_OK) {
-            fprintf(stderr, "Failed to format status pipe name\n");
-            fflush(NULL);
-            abort();
-        }
-
-        SECURITY_ATTRIBUTES sa;
-        ZeroMemory(&sa, sizeof(sa));
-        // sa.cb = sizeof(sa);
-        sa.nLength = sizeof(sa);
-        sa.bInheritHandle = TRUE;
-        sa.lpSecurityDescriptor = NULL;
-        
-        SECURITY_ATTRIBUTES sa_pipes;
-        ZeroMemory(&sa_pipes, sizeof(sa_pipes));
-        sa_pipes.nLength = sizeof(sa_pipes);
-        sa_pipes.bInheritHandle = FALSE;
-        sa_pipes.lpSecurityDescriptor = NULL;
-
-        HANDLE h_out = CreateNamedPipe(
-            out_name.bytes,
-            PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, blocking
-            1,                                     // Max instances
-            1024,                                  // Out buffer
-            1024,                                  // In buffer
-            0,                                     // Default timeout
-            &sa_pipes                              // Default security
-        );
-        if (GetLastError()) {
-            fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-            fflush(NULL);
-            abort();
-        }
-        
-        HANDLE h_err = CreateNamedPipe(
-            err_name.bytes,
-            PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, blocking
-            1,                                     // Max instances
-            1024,                                  // Out buffer
-            1024,                                  // In buffer
-            0,                                     // Default timeout
-            &sa_pipes                              // Default security
-        );
-        if (GetLastError()) {
-            fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-            fflush(NULL);
-            abort();
-        }
-        
-        HANDLE h_status = CreateNamedPipe(
-            status_name.bytes,
-            PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, blocking
-            1,                                     // Max instances
-            1024,                                  // Out buffer
-            1024,                                  // In buffer
-            0,                                     // Default timeout
-            &sa_pipes                              // Default security
-        );
-        if (GetLastError()) {
-            fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
-            fflush(NULL);
-            abort();
-        }
 
         struct TdoString command = tdo_string_init();
         {
@@ -867,7 +770,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (!(could_build = tdo_string_append(&command, arena, 1, " "))) goto error_build_command;
             if (!(could_build = tdo_string_append(&command, arena, 17, "--internal-status"))) goto error_build_command;
             if (!(could_build = tdo_string_append(&command, arena, 1, " "))) goto error_build_command;
-            if (!(could_build = tdo_string_append(&command, arena, status_name.length, status_name.bytes))) goto error_build_command;
+            if (!(could_build = tdo_string_append(&command, arena, run->status_name.length, run->status_name.bytes))) goto error_build_command;
             
             error_build_command:
             if (!could_build) {
@@ -879,32 +782,12 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         }
 
         run->test = test;
-        tdo_log_reset(&run->out, h_out);
-        tdo_log_reset(&run->err, h_err);
-        tdo_log_reset(&run->status, h_status);
-        run->out_ov = (struct TdoOverlap) {
-            .overlapped = {0},
-            .run = run,
-            .status = TDO_PIPE_WAITING,
-            .kind = TDO_LOG_OUT,
-        };
-        run->err_ov = (struct TdoOverlap) {
-            .overlapped = {0},
-            .run = run,
-            .status = TDO_PIPE_WAITING,
-            .kind = TDO_LOG_ERR,
-        };
-        run->status_ov = (struct TdoOverlap) {
-            .overlapped = {0},
-            .run = run, 
-            .status = TDO_PIPE_WAITING,
-            .kind = TDO_LOG_STATUS,
-        };
-
-        // set up IOCP
-        CreateIoCompletionPort(h_out, status->iocp, (ULONG_PTR)&run->out_ov, 0);
-        CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR)&run->err_ov, 0);
-        CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR)&run->status_ov, 0);
+        tdo_log_reset(&run->out, run->out.fd);
+        tdo_log_reset(&run->err, run->err.fd);
+        tdo_log_reset(&run->status, run->status.fd);
+        run->out_ov.status = TDO_PIPE_WAITING;
+        run->err_ov.status = TDO_PIPE_WAITING;
+        run->status_ov.status = TDO_PIPE_WAITING;
 
         // Start opening connection
         enum TdoError err_read = tdo_pipe_connect(arena, status, run, &run->out_ov);
@@ -931,8 +814,17 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             return;
         }
         
+        SECURITY_ATTRIBUTES sa;
+        {
+            ZeroMemory(&sa, sizeof(sa));
+            // sa.cb = sizeof(sa);
+            sa.nLength = sizeof(sa);
+            sa.bInheritHandle = TRUE;
+            sa.lpSecurityDescriptor = NULL;
+        }
+
         HANDLE h_out_client = CreateFile(
-            out_name.bytes,
+            run->out_name.bytes,
             GENERIC_WRITE,
             0,
             &sa, // Must be inheritable
@@ -942,7 +834,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
         
         HANDLE h_err_client = CreateFile(
-            err_name.bytes,
+            run->err_name.bytes,
             GENERIC_WRITE,
             0,
             &sa, // Must be inheritable
@@ -952,12 +844,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
 
         STARTUPINFO si;
-        ZeroMemory(&si, sizeof(si));
-        si.cb = sizeof(si);
-        si.dwFlags = STARTF_USESTDHANDLES;
-        si.hStdInput = INVALID_HANDLE_VALUE;
-        si.hStdOutput = h_out_client;
-        si.hStdError = h_err_client;
+        {
+            ZeroMemory(&si, sizeof(si));
+            si.cb = sizeof(si);
+            si.dwFlags = STARTF_USESTDHANDLES;
+            si.hStdInput = INVALID_HANDLE_VALUE;
+            si.hStdOutput = h_out_client;
+            si.hStdError = h_err_client;
+        }
 
         PROCESS_INFORMATION pi;
         TdoMonotoneTime start_time = tdo_time_get();
@@ -1120,9 +1014,9 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
             run->active = false;
             CloseHandle(run->process_handle);
-            CloseHandle(run->out.fd);
-            CloseHandle(run->err.fd);
-            CloseHandle(run->status.fd);
+            DisconnectNamedPipe(run->out.fd);
+            DisconnectNamedPipe(run->err.fd);
+            DisconnectNamedPipe(run->status.fd);
             status->running -= 1;
             status->finished += 1;
         } else {
@@ -1130,6 +1024,25 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             fflush(NULL);
             abort();
         }
+    }
+
+    // longest pipe name: \\.\pipe\tdo_pipe_AAAAAA_18446744073709551615_4294967296_18446744073709551615
+    #define TDO_MAX_PIPE_NAME_LENGTH (78)
+
+    enum TdoError tdo_run_unique_pipe_name(struct TdoString *name, struct TdoArena *arena, char const *prefix, size_t index, DWORD pid, ULONGLONG ticks) {
+        char buffer[TDO_MAX_PIPE_NAME_LENGTH];
+
+        errno = 0;
+        int total_written = snprintf(buffer, sizeof(buffer) - 1, "\\\\.\\pipe\\tdo_pipe_%s_%zu_%lu_%llu", prefix, index, pid, ticks);
+        if (total_written >= sizeof(buffer) - 1) return TDO_ERROR_MEMORY; // buffer too small
+        if (total_written < 0) {
+            perror("Could not write unique name");
+            return TDO_ERROR_UNKNOWN;
+        }
+
+        *name = tdo_string_init();
+        tdo_string_append(name, arena, total_written, buffer);
+        return TDO_ERROR_OK;
     }
 #else
     #error "Unknown platform"
@@ -1147,7 +1060,6 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             .fds = NULL,
             .fd_to_idx = NULL,
         #elif defined(TDO_WINDOWS)
-            .pid = GetCurrentProcessId(),
             .job = NULL,
             .iocp = NULL,
             .clock_frequency = 1,
@@ -1222,13 +1134,130 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     #endif
     
     for (size_t i = 0; i < args.processes; i++) {
+        #if defined(TDO_WINDOWS)
+            // open named pipes: stdout/stderr/status
+            DWORD pid = GetCurrentProcessId();
+            ULONGLONG ticks = GetTickCount64();
+
+            struct TdoString out_name;
+            if (tdo_run_unique_pipe_name(&out_name, arena, "out", i, pid, ticks) != TDO_ERROR_OK) {
+                fprintf(stderr, "Failed to format out pipe name\n");
+                fflush(NULL);
+                abort();
+            }
+
+            struct TdoString err_name;
+            if (tdo_run_unique_pipe_name(&err_name, arena, "err", i, pid, ticks) != TDO_ERROR_OK) {
+                fprintf(stderr, "Failed to format err pipe name\n");
+                fflush(NULL);
+                abort();
+            }
+
+            struct TdoString status_name;
+            if (tdo_run_unique_pipe_name(&status_name, arena, "status", i, pid, ticks) != TDO_ERROR_OK) {
+                fprintf(stderr, "Failed to format status pipe name\n");
+                fflush(NULL);
+                abort();
+            }
+
+            SECURITY_ATTRIBUTES sa;
+            ZeroMemory(&sa, sizeof(sa));
+            sa.nLength = sizeof(sa);
+            sa.bInheritHandle = FALSE;
+            sa.lpSecurityDescriptor = NULL;
+
+            HANDLE h_out = CreateNamedPipe(
+                out_name.bytes,
+                PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+                PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, overlapped
+                1,                                     // Max instances
+                1024,                                  // Out buffer
+                1024,                                  // In buffer
+                0,                                     // Default timeout
+                &sa                                    // Cannot be inherited
+            );
+            if (GetLastError()) {
+                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+                fflush(NULL);
+                abort();
+            }
+
+            HANDLE h_err = CreateNamedPipe(
+                err_name.bytes,
+                PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+                PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, overlapped
+                1,                                     // Max instances
+                1024,                                  // Out buffer
+                1024,                                  // In buffer
+                0,                                     // Default timeout
+                &sa                                    // Cannot be inherited
+            );
+            if (GetLastError()) {
+                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+                fflush(NULL);
+                abort();
+            }
+
+            HANDLE h_status = CreateNamedPipe(
+                status_name.bytes,
+                PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+                PIPE_TYPE_BYTE | PIPE_WAIT,            // Byte mode, overlapped
+                1,                                     // Max instances
+                1024,                                  // Out buffer
+                1024,                                  // In buffer
+                0,                                     // Default timeout
+                &sa                                    // Cannot be inherited
+            );
+            if (GetLastError()) {
+                fprintf(stderr, "Could not open pipe: %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+                fflush(NULL);
+                abort();
+            }
+        #endif
+
         status.runs[i] = (struct TdoRun) {
             .test = NULL,
-            .out = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
-            .err = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
-            .status = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
+            #if defined(TDO_POSIX)
+                .out = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
+                .err = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
+                .status = tdo_log_init(TDO_FILE_DESCRIPTOR_INVALID),
+            #elif defined(TDO_WINDOWS)
+                .out = tdo_log_init(h_out),
+                .err = tdo_log_init(h_err),
+                .status = tdo_log_init(h_status),
+                .out_name = out_name,
+                .err_name = err_name,
+                .status_name = status_name,
+                .out_ov = (struct TdoOverlap) {
+                    .overlapped = {0},
+                    .run = &status.runs[i],
+                    .status = TDO_PIPE_WAITING,
+                    .kind = TDO_LOG_OUT,
+                },
+                .err_ov = (struct TdoOverlap) {
+                    .overlapped = {0},
+                    .run = &status.runs[i],
+                    .status = TDO_PIPE_WAITING,
+                    .kind = TDO_LOG_ERR,
+                },
+                .status_ov = (struct TdoOverlap) {
+                    .overlapped = {0},
+                    .run = &status.runs[i],
+                    .status = TDO_PIPE_WAITING,
+                    .kind = TDO_LOG_STATUS,
+                },
+            #else
+                #error "Unknown os"
+            #endif
             .active = false,
         };
+
+        #if defined(TDO_WINDOWS)
+            // set up IOCP
+            CreateIoCompletionPort(h_out, status.iocp, (ULONG_PTR)&status.runs[i].out_ov, 0);
+            CreateIoCompletionPort(h_err, status.iocp, (ULONG_PTR)&status.runs[i].err_ov, 0);
+            CreateIoCompletionPort(h_status, status.iocp, (ULONG_PTR)&status.runs[i].status_ov, 0);
+        #endif
     }
 
     fprintf(output, "[");
