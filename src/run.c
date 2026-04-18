@@ -745,10 +745,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         return TDO_ERROR_OK;
     }
 
-    void tdo_run_kill(struct TdoRun *run) {
-        
-    }
-
     void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoTest *test, struct TdoRun *run) {
         (void)args; // unused
         (void)output; // unused
