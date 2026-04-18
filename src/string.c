@@ -81,23 +81,3 @@ void tdo_log_reset(struct TdoLog *log, TdoFileDescriptor fd) {
     log->fd = fd;
     log->data.length = 0;
 }
-
-enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
-    char buffer[1024];
-    while (true) {
-        struct TdoReadResult read_result = tdo_read_fd(log->fd, sizeof(buffer), buffer);
-
-        if (read_result.err == TDO_ERROR_OK && read_result.bytes_read > 0) {
-            bool result = tdo_string_append(&log->data, arena, read_result.bytes_read, buffer);
-            if (!result) return TDO_ERROR_MEMORY;
-        } else if (read_result.err == TDO_ERROR_OK && read_result.bytes_read == 0) {
-            break;
-        } else if (read_result.err == TDO_ERROR_WOULD_BLOCK) {
-            break;
-        } else {
-            return TDO_ERROR_PIPE;
-        }
-    }
-
-    return TDO_ERROR_OK;
-}

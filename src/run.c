@@ -490,6 +490,26 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 }
 
 #if defined(TDO_POSIX)
+    enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
+        char buffer[1024];
+        while (true) {
+            struct TdoReadResult read_result = tdo_read_fd(log->fd, sizeof(buffer), buffer);
+
+            if (read_result.err == TDO_ERROR_OK && read_result.bytes_read > 0) {
+                bool result = tdo_string_append(&log->data, arena, read_result.bytes_read, buffer);
+                if (!result) return TDO_ERROR_MEMORY;
+            } else if (read_result.err == TDO_ERROR_OK && read_result.bytes_read == 0) {
+                break;
+            } else if (read_result.err == TDO_ERROR_WOULD_BLOCK) {
+                break;
+            } else {
+                return TDO_ERROR_PIPE;
+            }
+        }
+
+        return TDO_ERROR_OK;
+    }
+
     size_t tdo_run_assemble_active_fds(struct pollfd *fds, size_t *fd_to_idx, size_t length, struct TdoRun *runs) {
         size_t fd_count = 0;
         for (size_t i = 0; i < length; i++) {
