@@ -791,7 +791,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 status->fork_failed = true;
                 status->running -= 1;
                 fprintf(stderr, "Could not allocate command to start test: %s::%s\n", test->symbol.file->name.bytes, test->symbol.name.bytes);
-                return;
+                goto error_setup;
             }
         }
 
@@ -809,7 +809,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
             status->log_setup_failed = true;
-            return;
+            goto error_setup;
         }
 
         err_read = tdo_pipe_connect(run, &run->err_ov);
@@ -817,7 +817,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
             status->log_setup_failed = true;
-            return;
+            goto error_setup;
         }
 
         err_read = tdo_pipe_connect(run, &run->status_ov);
@@ -825,7 +825,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
             status->log_setup_failed = true;
-            return;
+            goto error_setup;
         }
         
         SECURITY_ATTRIBUTES sa;
@@ -873,7 +873,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             fprintf(stderr, "Could not start process...\n");
             status->fork_failed = true;
             status->started -= 1;
-            return;
+            goto error_setup;
         }
         CloseHandle(pi.hThread);
         CloseHandle(h_out_client);
@@ -889,11 +889,15 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             status->started -= 1;
             TerminateProcess(pi.hProcess, 1); // child was not tethered to parent
             CloseHandle(pi.hProcess);
-            return;
+            goto error_setup;
         }
 
         run->active = true;
         status->running += 1;
+
+        error_setup:
+        tdo_arena_state_set(arena, state);
+        return;
     }
 
     void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
