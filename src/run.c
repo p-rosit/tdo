@@ -768,7 +768,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (!could_build) {
                 status->fork_failed = true;
                 status->running -= 1;
-                fprintf(stderr, "Could not allocate command to start test\n");
+                fprintf(stderr, "Could not allocate command to start test: %s::%s\n", test->symbol.file->name.bytes, test->symbol.name.bytes);
                 return;
             }
         }
