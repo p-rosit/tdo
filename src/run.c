@@ -711,7 +711,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         );
     }
 
-    enum TdoError tdo_pipe_connect(struct TdoArena *arena, struct TdoRunStatus *status, struct TdoRun *run, struct TdoOverlap *overlap) {
+    enum TdoError tdo_pipe_connect(struct TdoRun *run, struct TdoOverlap *overlap) {
         struct TdoLog *log;
         switch (overlap->kind) {
             case TDO_LOG_OUT: log = &run->out; break;
@@ -802,7 +802,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         run->status_ov.status = TDO_PIPE_WAITING;
 
         // Start opening connection
-        enum TdoError err_read = tdo_pipe_connect(arena, status, run, &run->out_ov);
+        enum TdoError err_read = tdo_pipe_connect(run, &run->out_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
@@ -810,7 +810,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             return;
         }
 
-        err_read = tdo_pipe_connect(arena, status, run, &run->err_ov);
+        err_read = tdo_pipe_connect(run, &run->err_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
@@ -818,7 +818,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             return;
         }
 
-        err_read = tdo_pipe_connect(arena, status, run, &run->status_ov);
+        err_read = tdo_pipe_connect(run, &run->status_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->started -= 1;
