@@ -7,7 +7,13 @@
     struct TdoOverlap {
         OVERLAPPED overlapped;
         struct TdoRun *run;
-        enum { TDO_PIPE_WAITING, TDO_PIPE_CONNECTED, TDO_PIPE_CLOSED, TDO_PIPE_CANCELLING } status;
+        enum {
+            TDO_PIPE_IDLE,
+            TDO_PIPE_WAITING,
+            TDO_PIPE_CONNECTED,
+            TDO_PIPE_CLOSED,
+            TDO_PIPE_CANCELLING
+        } status;
         enum { TDO_LOG_ERR, TDO_LOG_OUT, TDO_LOG_STATUS } kind;
         char buffer[1024];
     };
@@ -733,6 +739,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             // waiting for IOCP packet
         } else {
             fprintf(stderr, "Could not connect pipe, got windows error code: %lu\n", code);
+            overlap->status = TDO_PIPE_IDLE;
             return TDO_ERROR_OS;
         }
 
@@ -795,6 +802,8 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         }
 
         run->test = test;
+        run->pid = 0;
+        run->process_handle = NULL;
         tdo_log_reset(&run->out, run->out.fd);
         tdo_log_reset(&run->err, run->err.fd);
         tdo_log_reset(&run->status, run->status.fd);
@@ -803,33 +812,26 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         run->status_ov.status = TDO_PIPE_WAITING;
 
         // Start opening connection
-        bool test_started = false;
-        bool could_connect_out = false;
         enum TdoError err_read = tdo_pipe_connect(run, &run->out_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->log_setup_failed = true;
             goto error_setup;
         }
-        could_connect_out = true;
 
-        bool could_connect_err = false;
         err_read = tdo_pipe_connect(run, &run->err_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->log_setup_failed = true;
             goto error_err_pipe;
         }
-        could_connect_err = true;
 
-        bool could_connect_status = false;
         err_read = tdo_pipe_connect(run, &run->status_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
             status->log_setup_failed = true;
             goto error_status_pipe;
         }
-        could_connect_status = true;
         
         SECURITY_ATTRIBUTES sa;
         {
@@ -888,10 +890,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         }
         CloseHandle(pi.hThread);
 
-        run->start_time = start_time;
-        run->pid = pi.dwProcessId;
-        run->process_handle = pi.hProcess;
-
         if (!AssignProcessToJobObject(status->job, pi.hProcess)) {
             fprintf(stderr, "Could not assign process to job\n");
             status->fork_failed = true;
@@ -899,9 +897,11 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             CloseHandle(pi.hProcess);
             goto error_process_start;
         }
-        test_started = true;
 
         run->active = true;
+        run->start_time = start_time;
+        run->pid = pi.dwProcessId;
+        run->process_handle = pi.hProcess;
         status->running += 1;
 
         error_process_start:
@@ -909,22 +909,22 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         error_err_client:
         CloseHandle(h_out_client);
         error_out_client:
-        if (!test_started && could_connect_status) {
+        if (run->process_handle == NULL && run->status_ov.status == TDO_PIPE_WAITING) {
             CancelIoEx(run->status.fd, &run->status_ov);
             run->status_ov.status = TDO_PIPE_CANCELLING;
         }
         error_status_pipe:
-        if (!test_started && could_connect_err) {
+        if (run->process_handle == NULL && run->err_ov.status == TDO_PIPE_WAITING) {
             CancelIoEx(run->err.fd, &run->err_ov);
             run->err_ov.status = TDO_PIPE_CANCELLING;
         }
         error_err_pipe:
-        if (!test_started && could_connect_out) {
+        if (run->process_handle == NULL && run->out_ov.status == TDO_PIPE_WAITING) {
             CancelIoEx(run->out.fd, &run->out_ov);
             run->out_ov.status = TDO_PIPE_CANCELLING;
         }
         error_setup:
-        if (!test_started) status->started -= 1;
+        if (run->process_handle == NULL) status->started -= 1;
         tdo_arena_state_set(arena, state);
         return;
     }
@@ -1282,19 +1282,19 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 .out_ov = (struct TdoOverlap) {
                     .overlapped = {0},
                     .run = &status.runs[i],
-                    .status = TDO_PIPE_WAITING,
+                    .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_OUT,
                 },
                 .err_ov = (struct TdoOverlap) {
                     .overlapped = {0},
                     .run = &status.runs[i],
-                    .status = TDO_PIPE_WAITING,
+                    .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_ERR,
                 },
                 .status_ov = (struct TdoOverlap) {
                     .overlapped = {0},
                     .run = &status.runs[i],
-                    .status = TDO_PIPE_WAITING,
+                    .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_STATUS,
                 },
             #else
