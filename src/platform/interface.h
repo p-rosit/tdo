@@ -35,13 +35,6 @@
     #error "Unknown platform"
 #endif
 
-struct TdoReadResult {
-    size_t bytes_read;
-    enum TdoError err;
-};
-
-struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer);
-
 TdoMonotoneTime tdo_time_get(void);
 
 typedef void TdoTestSymbol(void);

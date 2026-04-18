@@ -2,55 +2,6 @@
 #include <string.h>
 #include "interface.h"
 
-struct TdoReadResult tdo_read_fd(TdoFileDescriptor fd, size_t size, char *buffer) {
-//     DWORD bytes_read = 0;
-//     bool success = ReadFile(fd, buffer, size, &bytes_read, overlapped);
-    
-//     enum TdoError err;
-//     if (success) {
-//         err = TDO_ERROR_OK;
-//     } else {
-//         DWORD code = GetLastError();
-
-//         if (code == ERROR_IO_PENDING || code == ERROR_IO_INCOMPLETE) {
-//             bytes_read = 0;
-//             err = TDO_ERROR_WOULD_BLOCK;
-//         } else if (code == ERROR_BROKEN_PIPE) {
-//             bytes_read = 0;
-//             err = TDO_ERROR_OK;
-//         } else {
-//             LPVOID err_msg;
-
-//             if (FormatMessage(
-//                 FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-//                 NULL,
-//                 code,
-//                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-//                 (LPTSTR) &err_msg,
-//                 0,
-//                 NULL
-//             ) == 0) {
-//                 fprintf(stderr, "Read file failed, could not format message for error: %lu\n", code);
-//             } else {
-//                 fprintf(stderr, "Could not read from file: %s\n", (char*) err_msg);
-//                 LocalFree(err_msg);
-//             }
-
-//             bytes_read = 0;
-//             err = TDO_ERROR_UNKNOWN;
-//         }
-//     }
-
-//     return (struct TdoReadResult) {
-//         .success = success,
-//         .bytes_read = bytes_read,
-//     };
-    return (struct TdoReadResult) {
-        .err = TDO_ERROR_OK,
-        .bytes_read = 0,
-    };
-}
-
 TdoMonotoneTime tdo_time_get(void) {
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);

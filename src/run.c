@@ -493,14 +493,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
         char buffer[1024];
         while (true) {
-            struct TdoReadResult read_result = tdo_read_fd(log->fd, sizeof(buffer), buffer);
-
-            if (read_result.err == TDO_ERROR_OK && read_result.bytes_read > 0) {
-                bool result = tdo_string_append(&log->data, arena, read_result.bytes_read, buffer);
+            errno = 0;
+            ssize_t bytes_read = read(log->fd, buffer, sizeof(buffer));
+            if (bytes_read > 0) {
+                bool result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
                 if (!result) return TDO_ERROR_MEMORY;
-            } else if (read_result.err == TDO_ERROR_OK && read_result.bytes_read == 0) {
+            } else if (bytes_read == 0) {
                 break;
-            } else if (read_result.err == TDO_ERROR_WOULD_BLOCK) {
+            } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             } else {
                 return TDO_ERROR_PIPE;
