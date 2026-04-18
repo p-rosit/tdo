@@ -291,7 +291,7 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
         // got error while running
 
         struct TdoString step_name;
-        enum TdoError err = tdo_string_previous_line(&step_name, run.status.data, run.status.data.length - last_line.length - 2);
+        err = tdo_string_previous_line(&step_name, run.status.data, run.status.data.length - last_line.length - 2);
         if (err != TDO_ERROR_OK || last_line.length <= 0) {
             tdo_run_report_error(*run.test, file, NULL, "malformed status pipe, could not find line before error", duration);
             goto done;
