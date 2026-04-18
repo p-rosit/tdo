@@ -1178,7 +1178,10 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         QueryPerformanceFrequency(&status.clock_frequency);
 
         for (size_t i = 0; i < args.processes; i++) {
-            status.runs[i].active = true; // use `true` to signal whether pipes have been set up or not
+            struct TdoRun *run = &status.runs[i];
+            run->out.fd = INVALID_HANDLE_VALUE;
+            run->err.fd = INVALID_HANDLE_VALUE;
+            run->status.fd = INVALID_HANDLE_VALUE;
         }
     #else
         #error "Unknown platform"
@@ -1358,24 +1361,13 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     result = TDO_ERROR_OK;
 
     #if defined(TDO_WINDOWS)
+        error_named_pipe_setup:
         for (size_t i = 0; i < args.processes; i++) {
             struct TdoRun run = status.runs[i];
-            CloseHandle(run.out.fd);
-            CloseHandle(run.err.fd);
-            CloseHandle(run.status.fd);
+            if (run.out.fd != INVALID_HANDLE_VALUE) CloseHandle(run.out.fd);
+            if (run.err.fd != INVALID_HANDLE_VALUE) CloseHandle(run.err.fd);
+            if (run.status.fd != INVALID_HANDLE_VALUE) CloseHandle(run.status.fd);
         }
-
-        if (false) { // only used for error cleanup
-            error_named_pipe_setup:
-            for (size_t i = 0; i < args.processes; i++) {
-                struct TdoRun run = status.runs[i];
-                if (!run.active) continue; // active used to signal whether pipes have been set up or not
-                CloseHandle(run.out.fd);
-                CloseHandle(run.err.fd);
-                CloseHandle(run.status.fd);
-            }
-        }
-
         error_job_settings:
         CloseHandle(status.job);
         error_job_setup:
