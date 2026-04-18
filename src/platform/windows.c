@@ -125,6 +125,7 @@ bool tdo_process_status_is_signal(TdoProcessStatus status) {
 }
 
 bool tdo_process_status_is_stop(TdoProcessStatus status) {
+    (void)status; // unused
     return false;
 }
 
@@ -137,5 +138,6 @@ TdoProcessCode tdo_process_code_signal(TdoProcessStatus status) {
 }
 
 TdoProcessCode tdo_process_code_stop(TdoProcessStatus status) {
+    (void)status; // unused
     abort();
 }
