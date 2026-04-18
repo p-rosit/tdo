@@ -16,6 +16,33 @@ TdoMonotoneTime tdo_time_get(void) {
     return time;
 }
 
+FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
+    int open_flags = O_WRONLY | O_CREAT;
+    if (!overwrite) open_flags |= O_EXCL;
+
+    errno = 0;
+    int output_fd = open(args.output, open_flags, S_IRUSR | S_IWUSR);
+    if (errno != 0) {
+        return NULL;
+    } else if (output_fd == -1) {
+        errno = EBADF; // ???
+        return NULL;
+    }
+
+    errno = 0;
+    output = fdopen(output_fd, "wb");
+    if (errno != 0) {
+        close(output_fd);
+        return NULL;
+    } else if (output == NULL) {
+        close(output_fd);
+        errno = EBADF; // ???
+        return NULL;
+    }
+
+    return output;
+}
+
 struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path) {
     dlerror();
     void *handle = dlopen(path, RTLD_NOW);

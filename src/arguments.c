@@ -13,6 +13,7 @@ struct TdoArguments {
     char const *test_file;
     char const *output;
     char const *internal_status;
+    bool overwrite;
 };
 
 enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **argv) {
@@ -22,6 +23,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         .single_test = NULL,
         .test_file = NULL,
         .output = NULL,
+        .overwrite = false,
         .internal_status = NULL,
     };
 
@@ -76,6 +78,8 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->output = argv[0];
                 }
+            } else if (strncmp(s, "-f", 3) == 0) {
+                args->overwrite = true;
             } else if (strncmp(s, "--internal-status", 18) == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing status file\n");

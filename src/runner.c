@@ -62,42 +62,15 @@ int main(int argc, char **argv) {
     FILE *output = stdout;
     if (args.output != NULL) {
         errno = 0;
-        output = fopen(args.output, "wb");
-        if (errno != 0) {
-            perror("Could not open output");
+        output = tdo_file_open_exclusive(args.output, args.overwrite);
+        if (errno == EEXIST) {
+            fprintf(stderr, "Output file '%s' already exists, overwrite with '-f'\n", args.output);
             result = TDO_ERROR_FILE;
             goto error_open_output;
         } else if (output == NULL) {
-            fprintf(stderr, "Could not open output file, unknown error\n");
-            result = TDO_ERROR_FILE;
-            goto error_open_output;
+            perror("Could not open output file for writing");
+            result = TDO_ERROR_UNKNOWN;
         }
-
-        // errno = 0;
-        // int output_fd = open(args.output, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-        // if (errno != 0) {
-        //     perror("Could not open output");
-        //     result = TDO_ERROR_FILE;
-        //     goto error_open_output;
-        // } else if (output_fd == -1) {
-        //     fprintf(stderr, "Could not open output file, unknown error\n");
-        //     result = TDO_ERROR_FILE;
-        //     goto error_open_output;
-        // }
-
-        // errno = 0;
-        // output = fdopen(output_fd, "wb");
-        // if (errno != 0) {
-        //     close(output_fd);
-        //     perror("Could not create output file from file descriptor");
-        //     result = TDO_ERROR_FILE;
-        //     goto error_open_output;
-        // } else if (output == NULL) {
-        //     close(output_fd);
-        //     fprintf(stderr, "Could not create output file from file descriptor, unknown error\n");
-        //     result = TDO_ERROR_FILE;
-        //     goto error_open_output;
-        // }
     }
 
     struct TdoArray test_files = tdo_array_init();

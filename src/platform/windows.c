@@ -1,11 +1,69 @@
 #include <windows.h>
 #include <string.h>
+#include <errno.h>
+#include <io.h>
+#include <fcntl.h>
 #include "interface.h"
 
 TdoMonotoneTime tdo_time_get(void) {
     LARGE_INTEGER time;
     QueryPerformanceCounter(&time);
     return time;
+}
+
+FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
+    HANDLE hFile = CreateFile(
+        path,
+        GENERIC_WRITE,                          // Open file for writing
+        0,                                      // No sharing
+        NULL,                                   // Default security
+        overwrite ? CREATE_ALWAYS : CREATE_NEW, // overwrite or don't
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        // Map WinAPI error (e.g., ERROR_FILE_EXISTS) to errno (e.g., EEXIST)
+        switch (GetLastError()) {
+            case ERROR_FILE_EXISTS:
+            case ERROR_ALREADY_EXISTS:
+                errno = EEXIST;
+                break;
+            case ERROR_ACCESS_DENIED:
+                errno = EACCES;
+                break;
+            case ERROR_FILE_NOT_FOUND:
+            case ERROR_PATH_NOT_FOUND:
+                errno = ENOENT;
+                break;
+            case ERROR_TOO_MANY_OPEN_FILES:
+                errno = EMFILE;
+                break;
+            case ERROR_DISK_FULL:
+                errno = ENOSPC;
+                break;
+            default:
+                errno = EINVAL; // Catch-all for "something else went wrong"
+                break;
+        }
+        return NULL;
+    }
+
+    int fd = _open_osfhandle((intptr_t)hFile, _O_WRONLY | _O_BINARY);
+    if (fd == -1) {
+        // _open_osfhandle sets errno automatically on failure
+        CloseHandle(hFile);
+        return NULL;
+    }
+
+    // 3. Associate the File Descriptor with a FILE stream
+    FILE* file = _fdopen(fd, "wb");
+    if (file == NULL) {
+        _close(fd);
+        return NULL;
+    }
+
+    return file;
 }
 
 TdoLibrary tdo_dynamic_library_load(char const *path) {

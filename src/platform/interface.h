@@ -37,6 +37,8 @@
 
 TdoMonotoneTime tdo_time_get(void);
 
+FILE *tdo_file_open_exclusive(char const *path, bool overwrite);
+
 typedef void TdoTestSymbol(void);
 
 TdoLibrary tdo_dynamic_library_load(char const *path);
