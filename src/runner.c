@@ -117,27 +117,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    // fprintf(stderr, "Running tests:\n");
-    // struct TdoTest *ts = tests.data;
-    // for (size_t i = 0; i < tests.length; i++) {
-    //     fprintf(stderr, "\t%s::%s\n", ts[i].symbol.file->name.bytes, ts[i].symbol.name.bytes);
-
-    //     fprintf(stderr, "\t\tBefore:\n");
-    //     struct TdoFixture *fs = ts[i].fixtures.data;
-    //     for (size_t j = 0; j < ts[i].fixtures.length; j++) {
-    //         if (fs[j].kind == TDO_FIXTURE_BEFORE) {
-    //             fprintf(stderr, "\t\t\t%s::%s\n", fs[j].symbol.file->name.bytes, fs[j].symbol.name.bytes);
-    //         }
-    //     }
-        
-    //     fprintf(stderr, "\t\tAfter:\n");
-    //     for (size_t j = 0; j < ts[i].fixtures.length; j++) {
-    //         if (fs[j].kind == TDO_FIXTURE_AFTER) {
-    //             fprintf(stderr, "\t\t\t%s::%s\n", fs[j].symbol.file->name.bytes, fs[j].symbol.name.bytes);
-    //         }
-    //     }
-    // }
-
     struct TdoArenaState state = tdo_arena_state_get(arena);
     struct TdoFile *files = (struct TdoFile*) test_files.data;
     for (size_t i = 0; i < test_files.length; i++) {
