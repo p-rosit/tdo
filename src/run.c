@@ -129,7 +129,7 @@ void tdo_run_report_exit(struct TdoRun run, FILE *file, char const *step, TdoPro
     if (step[0] != 'f') {
         fprintf(file, ",\n\t\t\"step\": \"");
         tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
-        fprintf(file, "\"", step);
+        fprintf(file, "\"");
     }
 
     tdo_log_dump(run.out, file, "stdout");
@@ -161,7 +161,7 @@ void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, cha
     if (step != NULL) {
         fprintf(file, "\"");
         tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
-        fprintf(file, "\"\n", step);
+        fprintf(file, "\"\n");
     } else {
         fprintf(file, "null\n");
     }
