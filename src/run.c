@@ -11,8 +11,7 @@
             TDO_PIPE_IDLE,
             TDO_PIPE_WAITING,
             TDO_PIPE_CONNECTED,
-            TDO_PIPE_CLOSED,
-            TDO_PIPE_CANCELLING
+            TDO_PIPE_CANCELLING,
         } status;
         enum { TDO_LOG_ERR, TDO_LOG_OUT, TDO_LOG_STATUS } kind;
         char buffer[1024];
@@ -711,9 +710,9 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 #elif defined(TDO_WINDOWS)
     int tdo_run_pipes_pending(struct TdoRun *run) {
         return (
-            (run->out_ov.status != TDO_PIPE_CLOSED)
-            + (run->err_ov.status != TDO_PIPE_CLOSED)
-            + (run->status_ov.status != TDO_PIPE_CLOSED)
+            (run->out_ov.status == TDO_PIPE_CONNECTED)
+            + (run->err_ov.status == TDO_PIPE_CONNECTED)
+            + (run->status_ov.status == TDO_PIPE_CONNECTED)
         );
     }
 
@@ -959,8 +958,12 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     abort();
             }
 
+            if (overlapped != NULL && ov->status == TDO_PIPE_CANCELLING) {
+                ov->status = TDO_PIPE_IDLE;
+                return;
+            }
+
             if (overlapped != NULL && ov->status == TDO_PIPE_WAITING) {
-                struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
                 ov->status = TDO_PIPE_CONNECTED;
 
                 BOOL success = ReadFile(pipe_handle, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
@@ -969,7 +972,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     if (code == ERROR_IO_PENDING) {
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
-                        ov->status = TDO_PIPE_CLOSED;
+                        ov->status = TDO_PIPE_IDLE;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1004,7 +1007,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     if (code == ERROR_IO_PENDING) {
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
-                        ov->status = TDO_PIPE_CLOSED;
+                        ov->status = TDO_PIPE_IDLE;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1013,7 +1016,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 }
             } else {
                 // no bytes transferred, pipe closed
-                ov->status = TDO_PIPE_CLOSED;
+                ov->status = TDO_PIPE_IDLE;
             }
             return;
         }
@@ -1022,8 +1025,8 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (overlapped != NULL) {
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
 
-            if (code == ERROR_BROKEN_PIPE) {
-                ov->status = TDO_PIPE_CLOSED;
+            if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
+                ov->status = TDO_PIPE_IDLE;
             } else {
                 fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
                 fflush(NULL);
@@ -1066,6 +1069,10 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             DisconnectNamedPipe(run->status.fd);
             status->running -= 1;
             status->finished += 1;
+
+            run->out_ov.status = TDO_PIPE_IDLE;
+            run->err_ov.status = TDO_PIPE_IDLE;
+            run->status_ov.status = TDO_PIPE_IDLE;
         } else {
             fprintf(stderr, "Wait for process failed somehow... TODO: graceful exit\n");
             fflush(NULL);
