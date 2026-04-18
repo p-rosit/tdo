@@ -789,7 +789,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             error_build_command:
             if (!could_build) {
                 status->fork_failed = true;
-                status->running -= 1;
                 fprintf(stderr, "Could not allocate command to start test: %s::%s\n", test->symbol.file->name.bytes, test->symbol.name.bytes);
                 goto error_setup;
             }
@@ -804,34 +803,37 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         run->status_ov.status = TDO_PIPE_WAITING;
 
         // Start opening connection
+        bool test_started = false;
+        bool could_connect_out = false;
         enum TdoError err_read = tdo_pipe_connect(run, &run->out_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
-            status->started -= 1;
             status->log_setup_failed = true;
             goto error_setup;
         }
+        could_connect_out = true;
 
+        bool could_connect_err = false;
         err_read = tdo_pipe_connect(run, &run->err_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
-            status->started -= 1;
             status->log_setup_failed = true;
-            goto error_setup;
+            goto error_err_pipe;
         }
+        could_connect_err = true;
 
+        bool could_connect_status = false;
         err_read = tdo_pipe_connect(run, &run->status_ov);
         if (err_read != TDO_ERROR_OK) {
             fprintf(stderr, "Could not start reading from child\n");
-            status->started -= 1;
             status->log_setup_failed = true;
-            goto error_setup;
+            goto error_status_pipe;
         }
+        could_connect_status = true;
         
         SECURITY_ATTRIBUTES sa;
         {
             ZeroMemory(&sa, sizeof(sa));
-            // sa.cb = sizeof(sa);
             sa.nLength = sizeof(sa);
             sa.bInheritHandle = TRUE;
             sa.lpSecurityDescriptor = NULL;
@@ -846,6 +848,11 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             FILE_ATTRIBUTE_NORMAL, // <--- Synchronous!
             NULL
         );
+        if (h_out_client == INVALID_HANDLE_VALUE) {
+            fprintf(stderr, "Could not open stdout pipe handle: %lu\n", GetLastError());
+            status->log_setup_failed = true;
+            goto error_out_client;
+        }
         
         HANDLE h_err_client = CreateFile(
             run->err_name.bytes,
@@ -856,6 +863,11 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             FILE_ATTRIBUTE_NORMAL, // <--- Synchronous!
             NULL
         );
+        if (h_err_client == INVALID_HANDLE_VALUE) {
+            fprintf(stderr, "Could not open stderr pipe handle: %lu\n", GetLastError());
+            status->log_setup_failed = true;
+            goto error_err_client;
+        }
 
         STARTUPINFO si;
         {
@@ -872,12 +884,9 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (!CreateProcess(NULL, command.bytes, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
             fprintf(stderr, "Could not start process...\n");
             status->fork_failed = true;
-            status->started -= 1;
-            goto error_setup;
+            goto error_process_start;
         }
         CloseHandle(pi.hThread);
-        CloseHandle(h_out_client);
-        CloseHandle(h_err_client);
 
         run->start_time = start_time;
         run->pid = pi.dwProcessId;
@@ -886,16 +895,36 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (!AssignProcessToJobObject(status->job, pi.hProcess)) {
             fprintf(stderr, "Could not assign process to job\n");
             status->fork_failed = true;
-            status->started -= 1;
             TerminateProcess(pi.hProcess, 1); // child was not tethered to parent
             CloseHandle(pi.hProcess);
-            goto error_setup;
+            goto error_process_start;
         }
+        test_started = true;
 
         run->active = true;
         status->running += 1;
 
+        error_process_start:
+        CloseHandle(h_err_client);
+        error_err_client:
+        CloseHandle(h_out_client);
+        error_out_client:
+        if (!test_started && could_connect_status) {
+            CancelIoEx(run->status.fd, &run->status_ov);
+            run->status_ov.status = TDO_PIPE_CANCELLING;
+        }
+        error_status_pipe:
+        if (!test_started && could_connect_err) {
+            CancelIoEx(run->err.fd, &run->err_ov);
+            run->err_ov.status = TDO_PIPE_CANCELLING;
+        }
+        error_err_pipe:
+        if (!test_started && could_connect_out) {
+            CancelIoEx(run->out.fd, &run->out_ov);
+            run->out_ov.status = TDO_PIPE_CANCELLING;
+        }
         error_setup:
+        if (!test_started) status->started -= 1;
         tdo_arena_state_set(arena, state);
         return;
     }
