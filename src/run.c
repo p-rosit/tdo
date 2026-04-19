@@ -30,6 +30,7 @@ struct TdoRun {
     #elif defined(TDO_WINDOWS)
         DWORD pid;
         HANDLE process_handle;
+        DWORD exit_code;
         struct TdoString out_name;
         struct TdoString err_name;
         struct TdoString status_name;
@@ -799,6 +800,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         run->test = test;
         run->pid = 0;
         run->process_handle = NULL;
+        run->exit_code = 0;
         tdo_log_reset(&run->out, run->out.fd);
         tdo_log_reset(&run->err, run->err.fd);
         tdo_log_reset(&run->status, run->status.fd);
@@ -878,20 +880,23 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
         PROCESS_INFORMATION pi;
         TdoMonotoneTime start_time = tdo_time_get();
-        if (!CreateProcess(NULL, command.bytes, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+        if (!CreateProcess(NULL, command.bytes, NULL, NULL, TRUE, CREATE_SUSPENDED, NULL, NULL, &si, &pi)) {
             fprintf(stderr, "Could not start process...\n");
             status->fork_failed = true;
             goto error_process_start;
         }
-        CloseHandle(pi.hThread);
 
         if (!AssignProcessToJobObject(status->job, pi.hProcess)) {
             fprintf(stderr, "Could not assign process to job\n");
             status->fork_failed = true;
             TerminateProcess(pi.hProcess, 1); // child was not tethered to parent
             CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
             goto error_process_start;
         }
+
+        ResumeThread(pi.hThread);
+        CloseHandle(pi.hThread);
 
         run->active = true;
         run->start_time = start_time;
@@ -905,17 +910,17 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         CloseHandle(h_out_client);
         error_out_client:
         if (run->process_handle == NULL && run->status_ov.status == TDO_PIPE_WAITING) {
-            CancelIoEx(run->status.fd, &run->status_ov);
+            CancelIoEx(run->status.fd, (LPOVERLAPPED) &run->status_ov);
             run->status_ov.status = TDO_PIPE_CANCELLING;
         }
         error_status_pipe:
         if (run->process_handle == NULL && run->err_ov.status == TDO_PIPE_WAITING) {
-            CancelIoEx(run->err.fd, &run->err_ov);
+            CancelIoEx(run->err.fd, (LPOVERLAPPED) &run->err_ov);
             run->err_ov.status = TDO_PIPE_CANCELLING;
         }
         error_err_pipe:
         if (run->process_handle == NULL && run->out_ov.status == TDO_PIPE_WAITING) {
-            CancelIoEx(run->out.fd, &run->out_ov);
+            CancelIoEx(run->out.fd, (LPOVERLAPPED) &run->out_ov);
             run->out_ov.status = TDO_PIPE_CANCELLING;
         }
         error_setup:
@@ -925,11 +930,64 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     }
 
     void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
+        (void)tests; // unused
         DWORD bytes_transferred;
         ULONG_PTR completion_key;
         LPOVERLAPPED overlapped;
 
         if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, &completion_key, &overlapped, 100)) {
+            if (completion_key == 1) { // process exited
+                if (bytes_transferred != JOB_OBJECT_MSG_EXIT_PROCESS) return;
+                DWORD pid = overlapped;
+
+                struct TdoRun *run = NULL;
+                for (size_t i = 0; i < args.processes; i++) {
+                    struct TdoRun *r = &status->runs[i];
+                    if (r->active && r->pid == overlapped) {
+                        run = r;
+                        break;
+                    }
+                }
+                if (run == NULL) {
+                    fprintf(stderr, "Process with unknown PID exited\n");
+                    fflush(NULL);
+                    abort();
+                }
+
+                DWORD return_status;
+                if (!GetExitCodeProcess(run->process_handle, &return_status)) {
+                    fprintf(stderr, "Get exit code failed somehow... TODO: graceful exit\n");
+                    fflush(NULL);
+                    abort();
+                }
+
+                CloseHandle(run->process_handle);
+                run->process_handle = NULL;
+
+                run->exit_code = return_status;
+                if (tdo_run_pipes_pending(run) > 0) return;
+
+                LARGE_INTEGER end_time = tdo_time_get();
+                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                if (status->finished > 0) fprintf(output, ",");
+                tdo_run_report_status(*run, arena, output, return_status, duration);
+
+                run->active = false;
+                DisconnectNamedPipe(run->out.fd);
+                DisconnectNamedPipe(run->err.fd);
+                DisconnectNamedPipe(run->status.fd);
+                status->running -= 1;
+                status->finished += 1;
+
+                run->out_ov.status = TDO_PIPE_IDLE;
+                run->err_ov.status = TDO_PIPE_IDLE;
+                run->status_ov.status = TDO_PIPE_IDLE;
+
+                return;
+            }
+
+            // read file
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
             struct TdoRun *run = ov->run;
 
@@ -956,6 +1014,25 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
             if (overlapped != NULL && ov->status == TDO_PIPE_CANCELLING) {
                 ov->status = TDO_PIPE_IDLE;
+                if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+
+                LARGE_INTEGER end_time = tdo_time_get();
+                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                if (status->finished > 0) fprintf(output, ",");
+                tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+
+                run->active = false;
+                DisconnectNamedPipe(run->out.fd);
+                DisconnectNamedPipe(run->err.fd);
+                DisconnectNamedPipe(run->status.fd);
+                status->running -= 1;
+                status->finished += 1;
+
+                run->out_ov.status = TDO_PIPE_IDLE;
+                run->err_ov.status = TDO_PIPE_IDLE;
+                run->status_ov.status = TDO_PIPE_IDLE;
+
                 return;
             }
 
@@ -969,6 +1046,24 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
+                        if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+
+                        LARGE_INTEGER end_time = tdo_time_get();
+                        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                        if (status->finished > 0) fprintf(output, ",");
+                        tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+
+                        run->active = false;
+                        DisconnectNamedPipe(run->out.fd);
+                        DisconnectNamedPipe(run->err.fd);
+                        DisconnectNamedPipe(run->status.fd);
+                        status->running -= 1;
+                        status->finished += 1;
+
+                        run->out_ov.status = TDO_PIPE_IDLE;
+                        run->err_ov.status = TDO_PIPE_IDLE;
+                        run->status_ov.status = TDO_PIPE_IDLE;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1004,6 +1099,24 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
+                        if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+
+                        LARGE_INTEGER end_time = tdo_time_get();
+                        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                        if (status->finished > 0) fprintf(output, ",");
+                        tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+
+                        run->active = false;
+                        DisconnectNamedPipe(run->out.fd);
+                        DisconnectNamedPipe(run->err.fd);
+                        DisconnectNamedPipe(run->status.fd);
+                        status->running -= 1;
+                        status->finished += 1;
+
+                        run->out_ov.status = TDO_PIPE_IDLE;
+                        run->err_ov.status = TDO_PIPE_IDLE;
+                        run->status_ov.status = TDO_PIPE_IDLE;
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1013,6 +1126,24 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             } else {
                 // no bytes transferred, pipe closed
                 ov->status = TDO_PIPE_IDLE;
+                if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+
+                LARGE_INTEGER end_time = tdo_time_get();
+                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                if (status->finished > 0) fprintf(output, ",");
+                tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+
+                run->active = false;
+                DisconnectNamedPipe(run->out.fd);
+                DisconnectNamedPipe(run->err.fd);
+                DisconnectNamedPipe(run->status.fd);
+                status->running -= 1;
+                status->finished += 1;
+
+                run->out_ov.status = TDO_PIPE_IDLE;
+                run->err_ov.status = TDO_PIPE_IDLE;
+                run->status_ov.status = TDO_PIPE_IDLE;
             }
             return;
         }
@@ -1023,6 +1154,25 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
             if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
                 ov->status = TDO_PIPE_IDLE;
+                if (ov->run->process_handle != NULL || tdo_run_pipes_pending(ov->run) > 0) return;
+
+                LARGE_INTEGER end_time = tdo_time_get();
+                double duration = (double)(end_time.QuadPart - ov->run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                if (status->finished > 0) fprintf(output, ",");
+                tdo_run_report_status(*ov->run, arena, output, ov->run->exit_code, duration);
+
+                ov->run->active = false;
+                DisconnectNamedPipe(ov->run->out.fd);
+                DisconnectNamedPipe(ov->run->err.fd);
+                DisconnectNamedPipe(ov->run->status.fd);
+                status->running -= 1;
+                status->finished += 1;
+
+                ov->run->out_ov.status = TDO_PIPE_IDLE;
+                ov->run->err_ov.status = TDO_PIPE_IDLE;
+                ov->run->status_ov.status = TDO_PIPE_IDLE;
+
             } else {
                 fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
                 fflush(NULL);
@@ -1038,42 +1188,10 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     }
 
     void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct TdoArena *arena, FILE *output) {
-        if (tdo_run_pipes_pending(run) > 0) return;
-
-        DWORD wait_status = WaitForSingleObject(run->process_handle, 0);
-
-        if (wait_status == WAIT_TIMEOUT) {
-            // test still running
-        } else if (wait_status == WAIT_OBJECT_0) {
-            DWORD return_status;
-            if (!GetExitCodeProcess(run->process_handle, &return_status)) {
-                fprintf(stderr, "Get exit code failed somehow... TODO: graceful exit\n");
-                fflush(NULL);
-                abort();
-            }
-
-            LARGE_INTEGER end_time = tdo_time_get();
-            double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-            if (status->finished > 0) fprintf(output, ",");
-            tdo_run_report_status(*run, arena, output, return_status, duration);
-
-            run->active = false;
-            CloseHandle(run->process_handle);
-            DisconnectNamedPipe(run->out.fd);
-            DisconnectNamedPipe(run->err.fd);
-            DisconnectNamedPipe(run->status.fd);
-            status->running -= 1;
-            status->finished += 1;
-
-            run->out_ov.status = TDO_PIPE_IDLE;
-            run->err_ov.status = TDO_PIPE_IDLE;
-            run->status_ov.status = TDO_PIPE_IDLE;
-        } else {
-            fprintf(stderr, "Wait for process failed somehow... TODO: graceful exit\n");
-            fflush(NULL);
-            abort();
-        }
+        (void)run;
+        (void)status;
+        (void)arena;
+        (void)output;
     }
 
     // longest pipe name: \\.\pipe\tdo_pipe_AAAAAA_18446744073709551615_4294967296_18446744073709551615
@@ -1174,6 +1292,15 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
         if (!SetInformationJobObject(status.job, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
+            result = TDO_ERROR_OS;
+            goto error_job_settings;
+        }
+
+        JOBOBJECT_ASSOCIATE_COMPLETION_PORT job_port;
+        job_port.CompletionKey = (PVOID)1; // Unique ID for this job
+        job_port.CompletionPort = status.iocp;
+        if (!SetInformationJobObject(status.job, JobObjectAssociateCompletionPortInformation, &job_port, sizeof(job_port))) {
+            fprintf(stderr, "SetInformationJobObject failed (%lu)\n", GetLastError());
             result = TDO_ERROR_OS;
             goto error_job_settings;
         }
