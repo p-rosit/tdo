@@ -1208,7 +1208,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         #elif defined(TDO_WINDOWS)
             .job = NULL,
             .iocp = NULL,
-            .clock_frequency = 1,
+            .clock_frequency = { .QuadPart = 1 },
         #endif
 
         .started = 0,
