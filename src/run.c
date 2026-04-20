@@ -938,12 +938,12 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, &completion_key, &overlapped, 100)) {
             if (completion_key == 1) { // process exited
                 if (bytes_transferred != JOB_OBJECT_MSG_EXIT_PROCESS) return;
-                DWORD pid = overlapped;
+                DWORD pid = (DWORD) overlapped;
 
                 struct TdoRun *run = NULL;
                 for (size_t i = 0; i < args.processes; i++) {
                     struct TdoRun *r = &status->runs[i];
-                    if (r->active && r->pid == overlapped) {
+                    if (r->active && r->pid == pid) {
                         run = r;
                         break;
                     }
