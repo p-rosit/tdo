@@ -1121,18 +1121,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             struct TdoRun *run = ov->run;
 
             HANDLE pipe_handle;
-            struct TdoLog *log;
             switch (ov->kind) {
                 case TDO_LOG_ERR:
-                    log = &run->err;
                     pipe_handle = run->err.fd;
                     break;
                 case TDO_LOG_OUT:
-                    log = &run->out;
                     pipe_handle = run->out.fd;
                     break;
                 case TDO_LOG_STATUS:
-                    log = &run->status;
                     pipe_handle = run->status.fd;
                     break;
                 default:
