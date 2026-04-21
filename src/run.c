@@ -942,6 +942,28 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         status->finished += 1;
     }
 
+    void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output, DWORD pid, DWORD msg) {
+        if (msg != JOB_OBJECT_MSG_EXIT_PROCESS) return;
+
+        if (run == NULL) {
+            fprintf(stderr, "Process with unknown PID exited\n");
+            fflush(NULL);
+            abort();
+        }
+
+        DWORD return_status;
+        if (!GetExitCodeProcess(run->process_handle, &return_status)) {
+            fprintf(stderr, "Get exit code failed somehow... TODO: graceful exit\n");
+            fflush(NULL);
+            abort();
+        }
+
+        CloseHandle(run->process_handle);
+        run->process_handle = NULL;
+        run->exit_code = return_status;
+        tdo_run_maybe_report_exit(arena, run, status, output);
+    }
+
     void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
         (void)tests; // unused
         DWORD bytes_transferred;
@@ -950,7 +972,6 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
         if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, (PULONG_PTR) &completion_key, &overlapped, 100)) {
             if (completion_key == NULL) { // process exited
-                if (bytes_transferred != JOB_OBJECT_MSG_EXIT_PROCESS) return;
                 DWORD pid = (DWORD) overlapped;
 
                 struct TdoRun *run = NULL;
@@ -961,23 +982,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         break;
                     }
                 }
-                if (run == NULL) {
-                    fprintf(stderr, "Process with unknown PID exited\n");
-                    fflush(NULL);
-                    abort();
-                }
-
-                DWORD return_status;
-                if (!GetExitCodeProcess(run->process_handle, &return_status)) {
-                    fprintf(stderr, "Get exit code failed somehow... TODO: graceful exit\n");
-                    fflush(NULL);
-                    abort();
-                }
-
-                CloseHandle(run->process_handle);
-                run->process_handle = NULL;
-                run->exit_code = return_status;
-                tdo_run_maybe_report_exit(arena, run, status, output);
+                tdo_run_handle_exit(arena, run, status, output, pid, bytes_transferred);
                 return;
             }
 
