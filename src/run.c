@@ -1001,16 +1001,15 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     abort();
             }
 
-            if (overlapped != NULL && ov->status == TDO_PIPE_CANCELLING) {
+            if (ov->status == TDO_PIPE_CANCELLING) {
                 ov->status = TDO_PIPE_IDLE;
                 DisconnectNamedPipe(log->fd);
                 tdo_run_maybe_report_exit(arena, run, status, output);
                 return;
             }
 
-            if (overlapped != NULL && ov->status == TDO_PIPE_WAITING) {
+            if (ov->status == TDO_PIPE_WAITING) {
                 ov->status = TDO_PIPE_CONNECTED;
-
                 BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
                 if (!success) {
                     DWORD code = GetLastError();
