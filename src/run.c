@@ -949,7 +949,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         LPOVERLAPPED overlapped;
 
         if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, (PULONG_PTR) &completion_key, &overlapped, 100)) {
-            if (completion_key == (void*) 1) { // process exited
+            if (completion_key == NULL) { // process exited
                 if (bytes_transferred != JOB_OBJECT_MSG_EXIT_PROCESS) return;
                 DWORD pid = (DWORD) overlapped;
 
@@ -1227,7 +1227,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         }
 
         JOBOBJECT_ASSOCIATE_COMPLETION_PORT job_port;
-        job_port.CompletionKey = (PVOID)1; // Unique ID for this job
+        job_port.CompletionKey = NULL; // Unique ID for this job
         job_port.CompletionPort = status.iocp;
         if (!SetInformationJobObject(status.job, JobObjectAssociateCompletionPortInformation, &job_port, sizeof(job_port))) {
             fprintf(stderr, "SetInformationJobObject failed (%lu)\n", GetLastError());
