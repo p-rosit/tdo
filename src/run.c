@@ -928,6 +928,20 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         return;
     }
 
+    void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output) {
+        if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+
+        LARGE_INTEGER end_time = tdo_time_get();
+        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+        if (status->finished > 0) fprintf(output, ",");
+        tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+
+        run->active = false;
+        status->running -= 1;
+        status->finished += 1;
+    }
+
     void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
         (void)tests; // unused
         DWORD bytes_transferred;
@@ -962,19 +976,8 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
                 CloseHandle(run->process_handle);
                 run->process_handle = NULL;
-
                 run->exit_code = return_status;
-                if (tdo_run_pipes_pending(run) > 0) return;
-
-                LARGE_INTEGER end_time = tdo_time_get();
-                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                if (status->finished > 0) fprintf(output, ",");
-                tdo_run_report_status(*run, arena, output, return_status, duration);
-
-                run->active = false;
-                status->running -= 1;
-                status->finished += 1;
+                tdo_run_maybe_report_exit(arena, run, status, output);
                 return;
             }
 
@@ -1006,17 +1009,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (overlapped != NULL && ov->status == TDO_PIPE_CANCELLING) {
                 ov->status = TDO_PIPE_IDLE;
                 DisconnectNamedPipe(pipe_handle);
-                if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
-
-                LARGE_INTEGER end_time = tdo_time_get();
-                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                if (status->finished > 0) fprintf(output, ",");
-                tdo_run_report_status(*run, arena, output, run->exit_code, duration);
-
-                run->active = false;
-                status->running -= 1;
-                status->finished += 1;
+                tdo_run_maybe_report_exit(arena, run, status, output);
                 return;
             }
 
@@ -1031,17 +1024,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
                         DisconnectNamedPipe(pipe_handle);
-                        if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
-
-                        LARGE_INTEGER end_time = tdo_time_get();
-                        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                        if (status->finished > 0) fprintf(output, ",");
-                        tdo_run_report_status(*run, arena, output, run->exit_code, duration);
-
-                        run->active = false;
-                        status->running -= 1;
-                        status->finished += 1;
+                        tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1078,17 +1061,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
                         DisconnectNamedPipe(pipe_handle);
-                        if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
-
-                        LARGE_INTEGER end_time = tdo_time_get();
-                        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                        if (status->finished > 0) fprintf(output, ",");
-                        tdo_run_report_status(*run, arena, output, run->exit_code, duration);
-
-                        run->active = false;
-                        status->running -= 1;
-                        status->finished += 1;
+                        tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
                         fflush(NULL);
@@ -1099,17 +1072,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 // no bytes transferred, pipe closed
                 ov->status = TDO_PIPE_IDLE;
                 DisconnectNamedPipe(pipe_handle);
-                if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
-
-                LARGE_INTEGER end_time = tdo_time_get();
-                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                if (status->finished > 0) fprintf(output, ",");
-                tdo_run_report_status(*run, arena, output, run->exit_code, duration);
-
-                run->active = false;
-                status->running -= 1;
-                status->finished += 1;
+                tdo_run_maybe_report_exit(arena, run, status, output);
             }
             return;
         }
@@ -1139,17 +1102,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
                 ov->status = TDO_PIPE_IDLE;
                 DisconnectNamedPipe(pipe_handle);
-                if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
-
-                LARGE_INTEGER end_time = tdo_time_get();
-                double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                if (status->finished > 0) fprintf(output, ",");
-                tdo_run_report_status(*run, arena, output, run->exit_code, duration);
-
-                run->active = false;
-                status->running -= 1;
-                status->finished += 1;
+                tdo_run_maybe_report_exit(arena, run, status, output);
             } else {
                 fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
                 fflush(NULL);
