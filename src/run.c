@@ -6,7 +6,6 @@
 #if defined(TDO_WINDOWS)
     struct TdoOverlap {
         OVERLAPPED overlapped;
-        struct TdoRun *run;
         enum {
             TDO_PIPE_IDLE,
             TDO_PIPE_WAITING,
@@ -932,11 +931,11 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
     void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
         (void)tests; // unused
         DWORD bytes_transferred;
-        ULONG_PTR completion_key;
+        void *completion_key;
         LPOVERLAPPED overlapped;
 
-        if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, &completion_key, &overlapped, 100)) {
-            if (completion_key == 1) { // process exited
+        if (GetQueuedCompletionStatus(status->iocp, &bytes_transferred, (PULONG_PTR) &completion_key, &overlapped, 100)) {
+            if (completion_key == (void*) 1) { // process exited
                 if (bytes_transferred != JOB_OBJECT_MSG_EXIT_PROCESS) return;
                 DWORD pid = (DWORD) overlapped;
 
@@ -980,8 +979,8 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             }
 
             // read file
+            struct TdoRun *run = completion_key;
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
-            struct TdoRun *run = ov->run;
 
             HANDLE pipe_handle;
             struct TdoLog *log;
@@ -1118,7 +1117,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
         DWORD code = GetLastError();
         if (overlapped != NULL) {
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
-            struct TdoRun *run = ov->run;
+            struct TdoRun *run = completion_key;
 
             HANDLE pipe_handle;
             switch (ov->kind) {
@@ -1389,19 +1388,16 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 .status_name = status_name,
                 .out_ov = (struct TdoOverlap) {
                     .overlapped = {0},
-                    .run = &status.runs[i],
                     .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_OUT,
                 },
                 .err_ov = (struct TdoOverlap) {
                     .overlapped = {0},
-                    .run = &status.runs[i],
                     .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_ERR,
                 },
                 .status_ov = (struct TdoOverlap) {
                     .overlapped = {0},
-                    .run = &status.runs[i],
                     .status = TDO_PIPE_IDLE,
                     .kind = TDO_LOG_STATUS,
                 },
