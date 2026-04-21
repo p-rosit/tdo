@@ -1020,12 +1020,11 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         DisconnectNamedPipe(log->fd);
                         tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
-                        fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
+                        fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                         fflush(NULL);
                         abort();
                     }
                 }
-
                 return;
             }
 
@@ -1057,7 +1056,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                         DisconnectNamedPipe(log->fd);
                         tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
-                        fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
+                        fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                         fflush(NULL);
                         abort();
                     }
