@@ -1032,11 +1032,32 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                             double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
 
                             if (status->finished > 0) fprintf(output, ",");
-                            tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                            tdo_run_report_error(*run->test, output, NULL, "could not read output, ran out of memory", duration);
                             status->finished += 1;
 
                             TerminateProcess(run->process_handle, 1); // test produced more logs than we can read, why let it continue?
                             CloseHandle(run->process_handle);
+                            run->active = false;
+                            run->process_handle = NULL;
+
+                            if (log != &run->out) {
+                                CancelIoEx(run->out.fd, (LPOVERLAPPED) &run->out_ov);
+                                run->out_ov.status = TDO_PIPE_CANCELLING;
+                            } else {
+                                run->out_ov.status = TDO_PIPE_IDLE;
+                            }
+                            if (log != &run->err) {
+                                CancelIoEx(run->err.fd, (LPOVERLAPPED) &run->err_ov);
+                                run->err_ov.status = TDO_PIPE_CANCELLING;
+                            } else {
+                                run->err_ov.status = TDO_PIPE_IDLE;
+                            }
+                            if (log != &run->status) {
+                                CancelIoEx(run->status.fd, (LPOVERLAPPED) &run->status_ov);
+                                run->status_ov.status = TDO_PIPE_CANCELLING;
+                            } else {
+                                run->status_ov.status = TDO_PIPE_IDLE;
+                            }
                             return;
                         }
 
