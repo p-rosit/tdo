@@ -984,21 +984,16 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             // read file
             struct TdoRun *run = completion_key;
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
-
-            HANDLE pipe_handle;
             struct TdoLog *log;
             switch (ov->kind) {
                 case TDO_LOG_ERR:
                     log = &run->err;
-                    pipe_handle = run->err.fd;
                     break;
                 case TDO_LOG_OUT:
                     log = &run->out;
-                    pipe_handle = run->out.fd;
                     break;
                 case TDO_LOG_STATUS:
                     log = &run->status;
-                    pipe_handle = run->status.fd;
                     break;
                 default:
                     fprintf(stderr, "Invalid log type\n");
@@ -1008,7 +1003,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
             if (overlapped != NULL && ov->status == TDO_PIPE_CANCELLING) {
                 ov->status = TDO_PIPE_IDLE;
-                DisconnectNamedPipe(pipe_handle);
+                DisconnectNamedPipe(log->fd);
                 tdo_run_maybe_report_exit(arena, run, status, output);
                 return;
             }
@@ -1016,14 +1011,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (overlapped != NULL && ov->status == TDO_PIPE_WAITING) {
                 ov->status = TDO_PIPE_CONNECTED;
 
-                BOOL success = ReadFile(pipe_handle, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
+                BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
                 if (!success) {
                     DWORD code = GetLastError();
                     if (code == ERROR_IO_PENDING) {
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
-                        DisconnectNamedPipe(pipe_handle);
+                        DisconnectNamedPipe(log->fd);
                         tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
@@ -1053,14 +1048,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     return;
                 }
 
-                BOOL success = ReadFile(pipe_handle, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
+                BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
                 if (!success) {
                     DWORD code = GetLastError();
                     if (code == ERROR_IO_PENDING) {
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         ov->status = TDO_PIPE_IDLE;
-                        DisconnectNamedPipe(pipe_handle);
+                        DisconnectNamedPipe(log->fd);
                         tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu '%s'\n", code, tdo_dynamic_get_error(arena));
@@ -1071,7 +1066,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             } else {
                 // no bytes transferred, pipe closed
                 ov->status = TDO_PIPE_IDLE;
-                DisconnectNamedPipe(pipe_handle);
+                DisconnectNamedPipe(log->fd);
                 tdo_run_maybe_report_exit(arena, run, status, output);
             }
             return;
