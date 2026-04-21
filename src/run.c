@@ -1006,71 +1006,73 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     abort();
             }
 
-            if (ov->status == TDO_PIPE_CANCELLING) {
-                ov->status = TDO_PIPE_IDLE;
-                DisconnectNamedPipe(log->fd);
-                tdo_run_maybe_report_exit(arena, run, status, output);
-                return;
-            }
+            switch (ov->status) {
+                case TDO_PIPE_CANCELLING:
+                    ov->status = TDO_PIPE_IDLE;
+                    DisconnectNamedPipe(log->fd);
+                    tdo_run_maybe_report_exit(arena, run, status, output);
+                    break;
+                case TDO_PIPE_WAITING:
+                    ov->status = TDO_PIPE_CONNECTED;
+                    BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
+                    if (!success) {
+                        DWORD code = GetLastError();
+                        if (code == ERROR_IO_PENDING) {
+                            // next read started
+                        } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
+                            ov->status = TDO_PIPE_IDLE;
+                            DisconnectNamedPipe(log->fd);
+                            tdo_run_maybe_report_exit(arena, run, status, output);
+                        } else {
+                            fprintf(stderr, "async ReadFile Failed: %lu\n", code);
+                            fflush(NULL);
+                            abort();
+                        }
+                    }
+                    break;
+                case TDO_PIPE_CONNECTED:
+                    if (bytes_transferred > 0) {
+                        bool result = tdo_string_append(&log->data, arena, bytes_transferred, ov->buffer);
+                        if (!result) {
+                            run->active = false;
+                            status->running -= 1;
 
-            if (ov->status == TDO_PIPE_WAITING) {
-                ov->status = TDO_PIPE_CONNECTED;
-                BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
-                if (!success) {
-                    DWORD code = GetLastError();
-                    if (code == ERROR_IO_PENDING) {
-                        // next read started
-                    } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
+                            LARGE_INTEGER end_time = tdo_time_get();
+                            double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+
+                            if (status->finished > 0) fprintf(output, ",");
+                            tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                            status->finished += 1;
+
+                            TerminateProcess(run->process_handle, 1); // test produced more logs than we can read, why let it continue?
+                            CloseHandle(run->process_handle);
+                            return;
+                        }
+
+                        BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
+                        if (!success) {
+                            DWORD code = GetLastError();
+                            if (code == ERROR_IO_PENDING) {
+                                // next read started
+                            } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
+                                ov->status = TDO_PIPE_IDLE;
+                                DisconnectNamedPipe(log->fd);
+                                tdo_run_maybe_report_exit(arena, run, status, output);
+                            } else {
+                                fprintf(stderr, "async ReadFile Failed: %lu\n", code);
+                                fflush(NULL);
+                                abort();
+                            }
+                        }
+                    } else {
+                        // no bytes transferred, pipe closed
                         ov->status = TDO_PIPE_IDLE;
                         DisconnectNamedPipe(log->fd);
                         tdo_run_maybe_report_exit(arena, run, status, output);
-                    } else {
-                        fprintf(stderr, "async ReadFile Failed: %lu\n", code);
-                        fflush(NULL);
-                        abort();
                     }
-                }
-                return;
-            }
-
-            if (bytes_transferred > 0) {
-                bool result = tdo_string_append(&log->data, arena, bytes_transferred, ov->buffer);
-                if (!result) {
-                    run->active = false;
-                    status->running -= 1;
-
-                    LARGE_INTEGER end_time = tdo_time_get();
-                    double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
-
-                    if (status->finished > 0) fprintf(output, ",");
-                    tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
-                    status->finished += 1;
-
-                    TerminateProcess(run->process_handle, 1); // test produced more logs than we can read, why let it continue?
-                    CloseHandle(run->process_handle);
-                    return;
-                }
-
-                BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
-                if (!success) {
-                    DWORD code = GetLastError();
-                    if (code == ERROR_IO_PENDING) {
-                        // next read started
-                    } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
-                        ov->status = TDO_PIPE_IDLE;
-                        DisconnectNamedPipe(log->fd);
-                        tdo_run_maybe_report_exit(arena, run, status, output);
-                    } else {
-                        fprintf(stderr, "async ReadFile Failed: %lu\n", code);
-                        fflush(NULL);
-                        abort();
-                    }
-                }
-            } else {
-                // no bytes transferred, pipe closed
-                ov->status = TDO_PIPE_IDLE;
-                DisconnectNamedPipe(log->fd);
-                tdo_run_maybe_report_exit(arena, run, status, output);
+                    break;
+                case TDO_PIPE_IDLE: fprintf(stderr, "Idle pipe received completion packet\n"); fflush(NULL); abort();
+                default: fprintf(stderr, "Invalid pipe state: %d\n", ov->status); fflush(NULL); abort();
             }
             return;
         }
