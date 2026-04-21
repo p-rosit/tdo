@@ -1072,6 +1072,12 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
         DWORD code = GetLastError();
         if (overlapped != NULL) {
+            if (completion_key == NULL) {
+                fprintf(stderr, "Dequeued failed completion packet related to process? msg=%lu, code=%lu\n", bytes_transferred, code);
+                fflush(NULL);
+                abort();
+            }
+
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
             struct TdoRun *run = completion_key;
 
