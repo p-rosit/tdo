@@ -1005,8 +1005,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     break;
                 case TDO_PIPE_WAITING:
                     ov->status = TDO_PIPE_CONNECTED;
-                    BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
-                    if (!success) {
+                    if (!ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped)) {
                         DWORD code = GetLastError();
                         if (code == ERROR_IO_PENDING) {
                             // next read started
@@ -1023,8 +1022,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                     break;
                 case TDO_PIPE_CONNECTED:
                     if (bytes_transferred > 0) {
-                        bool result = tdo_string_append(&log->data, arena, bytes_transferred, ov->buffer);
-                        if (!result) {
+                        if (!tdo_string_append(&log->data, arena, bytes_transferred, ov->buffer)) {
                             run->active = false;
                             status->running -= 1;
 
@@ -1040,8 +1038,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                             return;
                         }
 
-                        BOOL success = ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped);
-                        if (!success) {
+                        if (!ReadFile(log->fd, ov->buffer, sizeof(ov->buffer), NULL, &ov->overlapped)) {
                             DWORD code = GetLastError();
                             if (code == ERROR_IO_PENDING) {
                                 // next read started
