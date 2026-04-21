@@ -1101,7 +1101,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
                 fflush(NULL);
                 abort();
             }
-        } else if (code == 258) {
+        } else if (code == WAIT_TIMEOUT) {
             // timed out
         } else {
             fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
