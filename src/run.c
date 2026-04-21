@@ -1084,14 +1084,14 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
                 tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
             } else {
-                fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+                fprintf(stderr, "Read from pipe failed: %lu\n", GetLastError());
                 fflush(NULL);
                 abort();
             }
         } else if (code == WAIT_TIMEOUT) {
             // timed out
         } else {
-            fprintf(stderr, "Something went wrong! %lu '%s'\n", GetLastError(), tdo_dynamic_get_error(arena));
+            fprintf(stderr, "Could not dequeue completion packet: %lu\n", GetLastError());
             fflush(NULL);
             abort();
         }
