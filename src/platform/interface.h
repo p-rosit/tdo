@@ -2,6 +2,7 @@
 #define TDO_INTERFACE_H
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 #include "../error.h"
 #include "../arena.h"
 
