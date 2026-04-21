@@ -991,19 +991,10 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
             struct TdoOverlap *ov = (struct TdoOverlap*) overlapped;
             struct TdoLog *log;
             switch (ov->kind) {
-                case TDO_LOG_ERR:
-                    log = &run->err;
-                    break;
-                case TDO_LOG_OUT:
-                    log = &run->out;
-                    break;
-                case TDO_LOG_STATUS:
-                    log = &run->status;
-                    break;
-                default:
-                    fprintf(stderr, "Invalid log type\n");
-                    fflush(NULL);
-                    abort();
+                case TDO_LOG_ERR: log = &run->err; break;
+                case TDO_LOG_OUT: log = &run->out; break;
+                case TDO_LOG_STATUS: log = &run->status; break;
+                default: fprintf(stderr, "Invalid log type\n"); fflush(NULL); abort();
             }
 
             switch (ov->status) {
@@ -1090,19 +1081,10 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 
             HANDLE pipe_handle;
             switch (ov->kind) {
-                case TDO_LOG_ERR:
-                    pipe_handle = run->err.fd;
-                    break;
-                case TDO_LOG_OUT:
-                    pipe_handle = run->out.fd;
-                    break;
-                case TDO_LOG_STATUS:
-                    pipe_handle = run->status.fd;
-                    break;
-                default:
-                    fprintf(stderr, "Invalid log type\n");
-                    fflush(NULL);
-                    abort();
+                case TDO_LOG_ERR: pipe_handle = run->err.fd; break;
+                case TDO_LOG_OUT: pipe_handle = run->out.fd; break;
+                case TDO_LOG_STATUS: pipe_handle = run->status.fd; break;
+                default: fprintf(stderr, "Invalid log type\n"); fflush(NULL); abort();
             }
 
             if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
