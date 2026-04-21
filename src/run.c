@@ -1413,9 +1413,9 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
 
         #if defined(TDO_WINDOWS)
             // set up IOCP
-            CreateIoCompletionPort(h_out, status.iocp, (ULONG_PTR)&status.runs[i].out_ov, 0);
-            CreateIoCompletionPort(h_err, status.iocp, (ULONG_PTR)&status.runs[i].err_ov, 0);
-            CreateIoCompletionPort(h_status, status.iocp, (ULONG_PTR)&status.runs[i].status_ov, 0);
+            CreateIoCompletionPort(h_out, status.iocp, (ULONG_PTR) &status.runs[i], 0);
+            CreateIoCompletionPort(h_err, status.iocp, (ULONG_PTR) &status.runs[i], 0);
+            CreateIoCompletionPort(h_status, status.iocp, (ULONG_PTR) &status.runs[i], 0);
         #endif
     }
 
