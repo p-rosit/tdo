@@ -1,4 +1,4 @@
-#include "platform/interface.h"
+#include "platform.h"
 
 #if defined(TDO_POSIX)
     #include "platform/posix.c"

@@ -1,10 +1,10 @@
-#ifndef TDO_INTERFACE_H
-#define TDO_INTERFACE_H
+#ifndef TDO_PLATFORM_H
+#define TDO_PLATFORM_H
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include "../error.h"
-#include "../arena.h"
+#include "error.h"
+#include "arena.h"
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     #define TDO_POSIX

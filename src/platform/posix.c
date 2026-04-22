@@ -1,4 +1,4 @@
-#include "interface.h"
+#include "../platform.h"
 #include <errno.h>
 #include <stdio.h>
 

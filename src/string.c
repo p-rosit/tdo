@@ -1,4 +1,4 @@
-#include "platform.c"
+#include "platform.h"
 #include "error.h"
 #include "arena.h"
 #include <errno.h>

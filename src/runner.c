@@ -1,6 +1,7 @@
 #define _XOPEN_SOURCE 600
 #include "arena.c"
 #include "arguments.c"
+#include "platform.c"
 #include "run.c"
 #include <stdio.h>
 

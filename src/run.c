@@ -1,5 +1,5 @@
 #include <stdarg.h>
-#include "platform/interface.h"
+#include "platform.h"
 
 struct TdoRun;
 void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file, int status, double duration);
