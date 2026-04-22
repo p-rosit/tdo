@@ -309,7 +309,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     result = TDO_ERROR_OK;
 
     error_setup:
-    tdo_arena_state_set(arena, state);
+    if (result != TDO_ERROR_OK) tdo_arena_state_set(arena, state);
     return result;
 }
 
