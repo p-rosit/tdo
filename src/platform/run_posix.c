@@ -254,9 +254,9 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
     }
     
     for (size_t i = 0; i < args.processes; i++) {
-        struct TdoRun *run = &status.runs[i];
+        struct TdoRun *run = &status->runs[i];
         if (run->active) {
-            tdo_run_poll_exit(run, &status, arena, output);
+            tdo_run_poll_exit(run, status, arena, output);
         }
     }
 }
