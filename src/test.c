@@ -1,9 +1,10 @@
 #include "error.h"
 #include "string.c"
+#include <string.h>
 #include <ctype.h>
 
 struct TdoFile {
-    void *dynamic_handle;
+    TdoLibrary library;
     struct TdoString name;
 };
 
@@ -78,21 +79,18 @@ enum TdoError tdo_array_append(struct TdoArray *array, struct TdoArena *arena, s
 }
 
 enum TdoError tdo_read_line(struct TdoString *string, struct TdoArena *arena, FILE *file) {
-    enum TdoError result = TDO_ERROR_UNKNOWN;
     *string = tdo_string_init();
 
     int c;
     while ((c = fgetc(file)) != EOF) {
         if (c == '\n') break;
 
-        char b = c;
+        char b = (char) c;
         if (!tdo_string_append(string, arena, 1, &b)) return TDO_ERROR_MEMORY;
     }
 
     if (c == EOF && string->length == 0) return TDO_ERROR_FILE;
     return TDO_ERROR_OK;
-    error:
-    return result;
 }
 
 enum TdoError tdo_test_parse_file(struct TdoString *file, struct TdoString *line, char const *file_name, size_t line_number) {
@@ -179,7 +177,7 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
 
     if (file == NULL) {
         struct TdoFile f = (struct TdoFile) {
-            .dynamic_handle = NULL,
+            .library = NULL,
             .name = tdo_string_init(),
         };
         if (!tdo_string_clone(&f.name, string_arena, file_name)) return TDO_ERROR_MEMORY;
@@ -196,7 +194,7 @@ enum TdoError tdo_test_parse_symbol(struct TdoString *line, char const *input_fi
     return TDO_ERROR_OK;
 }
 
-enum TdoError tdo_test_parse_test( struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_test_parse_test(struct TdoString *line, char const *file_name, size_t line_number, struct TdoArena *arena, struct TdoArena *string_arena, struct TdoTest *test, struct TdoArray *test_files) {
     int c;
     while (line->length > 0 && isspace(c = line->bytes[0])) {
         line->length -= 1;
@@ -256,7 +254,7 @@ enum TdoError tdo_test_parse_fixture(struct TdoString *line, char const *file_na
     return tdo_array_append(&test->fixtures, arena, sizeof(struct TdoFixture), &fixture);
 }
 
-enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, char const *file_name, FILE *input_file, struct TdoArray *test_files, struct TdoArray *tests) {
+enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_arena, char const *file_name, FILE *input_file, char const *single_line, struct TdoArray *test_files, struct TdoArray *tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct {
         struct TdoArray test_files;
@@ -270,22 +268,26 @@ enum TdoError tdo_input_parse(struct TdoArena *arena, struct TdoArena *string_ar
         .string_state = tdo_arena_state_get(string_arena),
     };
 
-    struct TdoArena *temp_arena = tdo_arena_init(1024);
+    struct TdoArena *temp_arena = tdo_arena_init(single_line == NULL ? 1024 : 1);
     if (temp_arena == NULL) return TDO_ERROR_MEMORY;
 
-    int c;
     size_t line_number = 0;
     while (true) {
         line_number += 1;
         tdo_arena_state_clear(temp_arena);
 
         struct TdoString line;
-        result = tdo_read_line(&line, temp_arena, input_file);
-        if (result == TDO_ERROR_FILE) break;
-        else if (result != TDO_ERROR_OK) goto error;
+        if (single_line == NULL) {
+            result = tdo_read_line(&line, temp_arena, input_file);
+            if (result == TDO_ERROR_FILE) break;
+            else if (result != TDO_ERROR_OK) goto error;
+        } else {
+            if (line_number > 1) break;
+            line = (struct TdoString) { .bytes=(char*) single_line, .length=strlen(single_line) };
+        }
 
         struct TdoTest test;
-        result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files, tests);
+        result = tdo_test_parse_test(&line, file_name, line_number, arena, string_arena, &test, test_files);
         if (result == TDO_ERROR_EOF || result == TDO_ERROR_PREFIX) {
             // not resetting the arena leaks memory but we might've seen a new
             // dynamic library for the first time so it's not safe to reset

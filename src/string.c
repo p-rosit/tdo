@@ -1,10 +1,9 @@
+#include "platform.c"
 #include "error.h"
 #include "arena.c"
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include <unistd.h>
 
 struct TdoString {
     char *bytes;
@@ -62,12 +61,12 @@ bool tdo_string_clone(struct TdoString *copy, struct TdoArena *arena, struct Tdo
 }
 
 struct TdoLog {
-    int fd;
+    TdoFileDescriptor fd;
     struct TdoString data;
     size_t capacity;
 };
 
-struct TdoLog tdo_log_init(int fd) {
+struct TdoLog tdo_log_init(TdoFileDescriptor fd) {
     return (struct TdoLog) {
         .fd = fd,
         .data = (struct TdoString) {
@@ -78,29 +77,7 @@ struct TdoLog tdo_log_init(int fd) {
     };
 }
 
-void tdo_log_reset(struct TdoLog *log, int fd) {
+void tdo_log_reset(struct TdoLog *log, TdoFileDescriptor fd) {
     log->fd = fd;
     log->data.length = 0;
-}
-
-enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
-    char buffer[1024];
-    while (true) {
-        errno = 0;
-        ssize_t bytes_read = read(log->fd, buffer, sizeof(buffer));
-
-        if (bytes_read > 0) {
-            bool result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
-            if (!result) return TDO_ERROR_MEMORY;
-        } else if (bytes_read == 0) {
-            break;
-        } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
-            break;
-        } else {
-            perror("Could not read from pipe");
-            return TDO_ERROR_PIPE;
-        }
-    }
-
-    return TDO_ERROR_OK;
 }
