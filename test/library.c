@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     #define EXPORT
 #elif defined(_WIN32)
