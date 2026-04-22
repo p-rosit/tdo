@@ -151,6 +151,7 @@ void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount) {
 }
 
 bool tdo_arena_resize(struct TdoArena *arena, void *allocation, size_t type_size, size_t amount) {
+    if (allocation == NULL) return false; // cannot resize null
     if (arena->last_allocation != allocation) return false; // cannot resize allocation, not latest
 
     if (amount > SIZE_MAX - type_size) return false; // size overflow
