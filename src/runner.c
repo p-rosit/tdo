@@ -3,6 +3,7 @@
 #include "str.c"
 #include "arguments.c"
 #include "platform.c"
+#include "test.c"
 #include "run.c"
 #include <stdio.h>
 

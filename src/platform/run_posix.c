@@ -1,6 +1,6 @@
 #include "../error.h"
 #include "../arguments.h"
-#include "../test.c"
+#include "../test.h"
 #include "../str.h"
 #include <string.h>
 
