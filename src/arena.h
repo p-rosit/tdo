@@ -39,6 +39,20 @@ struct TdoArena {
     void const *last_allocation;
 };
 
+struct TdoArena *tdo_arena_init(size_t initial_capacity);
+void tdo_arena_deinit(struct TdoArena *arena);
+
+void tdo_arena_state_clear(struct TdoArena *arena);
+
+struct TdoArenaState {
+    struct TdoArenaNode *const node;
+    char *const current;
+};
+
+struct TdoArenaState tdo_arena_state_get(struct TdoArena *arena);
+void tdo_arena_state_set(struct TdoArena *arena, struct TdoArenaState state);
+
 void *tdo_arena_alloc(struct TdoArena *arena, size_t type_size, size_t amount);
+bool tdo_arena_resize(struct TdoArena *arena, void *allocation, size_t type_size, size_t amount);
 
 #endif

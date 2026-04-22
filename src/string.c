@@ -1,6 +1,6 @@
 #include "platform.c"
 #include "error.h"
-#include "arena.c"
+#include "arena.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
