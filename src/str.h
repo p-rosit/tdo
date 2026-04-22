@@ -1,5 +1,5 @@
-#ifndef TDO_STRING_H
-#define TDO_STRING_H
+#ifndef TDO_STR_H
+#define TDO_STR_H
 #include "platform.h"
 #include <stdlib.h>
 

@@ -1,6 +1,7 @@
 #include "../error.h"
 #include "../arguments.h"
 #include "../test.c"
+#include "../str.h"
 #include <string.h>
 
 struct TdoRun {

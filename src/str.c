@@ -1,7 +1,7 @@
 #include "platform.h"
 #include "error.h"
 #include "arena.h"
-#include "string.h"
+#include "str.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
