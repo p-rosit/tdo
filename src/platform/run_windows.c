@@ -1,5 +1,5 @@
 #include "../error.h"
-#include "../arguments.c"
+#include "../arguments.h"
 #include "../test.c"
 #include <windows.h>
 
