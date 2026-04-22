@@ -21,7 +21,7 @@ FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
     if (!overwrite) open_flags |= O_EXCL;
 
     errno = 0;
-    int output_fd = open(args.output, open_flags, S_IRUSR | S_IWUSR);
+    int output_fd = open(path, open_flags, S_IRUSR | S_IWUSR);
     if (errno != 0) {
         return NULL;
     } else if (output_fd == -1) {
@@ -30,7 +30,7 @@ FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
     }
 
     errno = 0;
-    output = fdopen(output_fd, "wb");
+    FILE *output = fdopen(output_fd, "wb");
     if (errno != 0) {
         close(output_fd);
         return NULL;
