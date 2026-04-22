@@ -82,6 +82,14 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         return;
     }
 
+    errno = 0;
+    FILE *status_file = fdopen(p_status[1], "wb");
+    if (errno != 0 || status == NULL) {
+        status->log_setup_failed = true;
+        status->started -= 1;
+        return;
+    }
+
     // set all pipes to be non-blocking
     {
         int flags = fcntl(p_out[0], F_GETFL, 0);
@@ -130,7 +138,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
             dup2(p_out[1], STDOUT_FILENO);
             dup2(p_err[1], STDERR_FILENO);
 
-            tdo_run_single(test, arena, p_status[1]);
+            tdo_run_single(test, arena, status_file);
 
             // flush buffers
             fflush(stdout);
@@ -142,7 +150,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
             return;
     }
 
-    close(p_out[1]); close(p_err[1]); close(p_status[1]);
+    close(p_out[1]); close(p_err[1]); fclose(status_file);
     run->active = true;
     run->test = test;
     run->start_time = start_time;
