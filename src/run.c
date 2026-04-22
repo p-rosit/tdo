@@ -6,6 +6,8 @@ void tdo_run_report_status(struct TdoRun run, struct TdoArena *arena, FILE *file
 struct TdoTest;
 void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration);
 
+void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status);
+
 #if defined(TDO_POSIX)
     #include "platform/run_posix.c"
 #elif defined(TDO_WINDOWS)
