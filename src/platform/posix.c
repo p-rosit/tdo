@@ -43,20 +43,18 @@ FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
     return output;
 }
 
-struct TdoLibraryLoadResult tdo_dynamic_library_load(char const *path) {
+TdoLibrary tdo_dynamic_library_load(char const *path) {
     dlerror();
-    void *handle = dlopen(path, RTLD_NOW);
-    return lib;
+    return dlopen(path, RTLD_NOW);
 }
 
 void tdo_dynamic_library_unload(TdoLibrary lib) {
     dlclose(lib);
 }
 
-TdoLibrary tdo_dynamic_symbol_load(TdoLibrary lib, char const *name) {
+TdoTestSymbol *tdo_dynamic_symbol_load(TdoLibrary lib, char const *name) {
     dlerror();
-    void *symbol = dlsym(lib, name);
-    return symbol;
+    return (TdoTestSymbol*) dlsym(lib, name);
 }
 
 char const *tdo_dynamic_get_error(struct TdoArena *arena) {
