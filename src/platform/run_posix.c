@@ -263,7 +263,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
 
 enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
-    struct TdoArenaState state = tdo_arena_state(arena);
+    struct TdoArenaState state = tdo_arena_state_get(arena);
 
     *status = (struct TdoRunStatus) {
         .runs = NULL,
