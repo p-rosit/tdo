@@ -143,6 +143,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
             // flush buffers
             fflush(stdout);
             fflush(stderr);
+            fflush(status_file);
             _exit(0);
         case -1:
             status->fork_failed = true;
