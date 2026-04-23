@@ -269,10 +269,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         }
 
         tdo_run_report_error(*run->test, file, step.bytes, last_line.bytes + 1, duration);
-        goto done;
-    }
-
-    if (last_line.length >= 2 && (last_line.bytes[0] == 'b' || last_line.bytes[0] == 'a') && last_line.bytes[1] == '_') {
+    } else if (last_line.length >= 2 && (last_line.bytes[0] == 'b' || last_line.bytes[0] == 'a') && last_line.bytes[1] == '_') {
         // unexpected exit while running fixture
         size_t index;
         enum TdoError err_parse = tdo_parse_size_t(&index, last_line.bytes + 2);
