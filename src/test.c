@@ -1,38 +1,9 @@
 #include "error.h"
-#include "string.c"
+#include "str.h"
+#include "test.h"
 #include <string.h>
 #include <ctype.h>
-
-struct TdoFile {
-    TdoLibrary library;
-    struct TdoString name;
-};
-
-struct TdoSymbol {
-    struct TdoFile *file;
-    struct TdoString name;
-};
-
-enum TdoFixtureKind {
-    TDO_FIXTURE_BEFORE,
-    TDO_FIXTURE_AFTER,
-};
-
-struct TdoFixture {
-    struct TdoSymbol symbol;
-    enum TdoFixtureKind kind;
-};
-
-struct TdoArray {
-    void *data;
-    size_t length;
-    size_t capacity;
-};
-
-struct TdoTest {
-    struct TdoSymbol symbol;
-    struct TdoArray fixtures;
-};
+#include <stdint.h>
 
 struct TdoArray tdo_array_init(void) {
     return (struct TdoArray) { .data = NULL, .length = 0, .capacity = 0 };

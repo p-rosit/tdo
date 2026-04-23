@@ -1,7 +1,15 @@
 #include "../error.h"
-#include "../arguments.c"
-#include "../test.c"
+#include "../arguments.h"
+#include "../test.h"
+#include "../str.h"
+#include "../run.h"
 #include <string.h>
+#include <errno.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <poll.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 struct TdoRun {
     struct TdoTest *test;
@@ -179,7 +187,7 @@ void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct T
 
         if (status->finished > 0) fprintf(output, ",");
         if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-            tdo_run_report_status(*run, arena, output, return_status, duration);
+            tdo_run_report_status(run, arena, output, return_status, duration);
         } else {
             tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
         }

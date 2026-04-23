@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <io.h>
 #include <fcntl.h>
-#include "interface.h"
+#include "../platform.h"
 
 TdoMonotoneTime tdo_time_get(void) {
     LARGE_INTEGER time;

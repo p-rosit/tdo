@@ -44,11 +44,6 @@ void tdo_arena_state_clear(struct TdoArena *arena) {
     }
 }
 
-struct TdoArenaState {
-    struct TdoArenaNode *const node;
-    char *const current;
-};
-
 struct TdoArenaState tdo_arena_state_get(struct TdoArena *arena) {
     return (struct TdoArenaState) {
         .node = arena->latest,

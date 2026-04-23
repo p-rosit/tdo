@@ -1,6 +1,7 @@
 #include "../error.h"
-#include "../arguments.c"
-#include "../test.c"
+#include "../arguments.h"
+#include "../test.h"
+#include "../str.h"
 #include <windows.h>
 
 struct TdoOverlap {
@@ -292,7 +293,7 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
     double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
 
     if (status->finished > 0) fprintf(output, ",");
-    tdo_run_report_status(*run, arena, output, run->exit_code, duration);
+    tdo_run_report_status(run, arena, output, run->exit_code, duration);
 
     run->active = false;
     status->running -= 1;

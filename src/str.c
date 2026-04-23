@@ -1,14 +1,11 @@
-#include "platform.c"
+#include "platform.h"
 #include "error.h"
-#include "arena.c"
+#include "arena.h"
+#include "str.h"
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
-
-struct TdoString {
-    char *bytes;
-    size_t length;
-};
+#include <stdint.h>
 
 struct TdoString tdo_string_init(void) {
     return (struct TdoString) { .bytes = NULL, .length = 0 };
@@ -59,12 +56,6 @@ bool tdo_string_clone(struct TdoString *copy, struct TdoArena *arena, struct Tdo
     *copy = tdo_string_init();
     return tdo_string_append(copy, arena, string.length, string.bytes);
 }
-
-struct TdoLog {
-    TdoFileDescriptor fd;
-    struct TdoString data;
-    size_t capacity;
-};
 
 struct TdoLog tdo_log_init(TdoFileDescriptor fd) {
     return (struct TdoLog) {
