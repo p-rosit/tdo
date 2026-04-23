@@ -1,9 +1,10 @@
-from typing import Generator
+from typing import Generator, List, Optional
 import dataclasses
 import contextlib
 import subprocess
 import json
 import os
+import pathlib
 import shutil
 import uuid
 import pytest
@@ -60,32 +61,50 @@ def library(root_directory: str, temp_directory: str) -> str:
     return compiled_path
 
 
+class Runner:
+    compiled_path: Optional[str] = None
+
+    def __init__(self, source: str, temp_directory: str):
+        self.source = source
+        self.temp_directory = temp_directory
+
+        _, name = os.path.split(source)
+        self.name = pathlib.Path(name).with_suffix('')
+
+    @contextlib.contextmanager
+    def compile(self) -> Generator[str, None, None]:
+        if self.compiled_path is not None:
+            yield self.compiled_path
+            return
+
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
+
+        if not os.path.isfile(self.source):
+            raise FileNotFoundError(f'Missing test file: {self.source}')
+
+        if os.name == 'posix':
+            command = f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {self.source} -o {compiled_path}'
+        elif os.name == 'nt':
+            command = f'cl /nologo {self.source} /Fe{compiled_path}'
+        else:
+            raise NotImplementedError(f'Unknown os: {os.name}')
+
+        with working_directory(self.temp_directory):
+            code = os.system(command)
+
+        if code:
+            raise CompileError(f'Could not compile {self.source}')
+
+        self.compiled_path = compiled_path
+        yield compiled_path
+
+
 @pytest.fixture(scope='session')
 def runner(root_directory: str, temp_directory: str) -> str:
-    name = 'runner'
-    source = f'{name}.c'
-    compiled = executable(name)
-
-    source_path = os.path.join(root_directory, '..', 'src', source)
-    compiled_path = os.path.join(temp_directory, compiled)
-
-    if not os.path.isfile(source_path):
-        raise FileNotFoundError(f'Missing test file: {source}')
-
-    if os.name == 'posix':
-        command = f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {source_path} -o {compiled_path}'
-    elif os.name == 'nt':
-        command = f'cl /nologo {source_path} /Fe{compiled_path}'
-    else:
-        raise NotImplementedError(f'Unknown os: {os.name}')
-
-    with working_directory(temp_directory):
-        code = os.system(command)
-
-    if code:
-        raise CompileError(f'Could not compile {source}')
-
-    return compiled_path
+    source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
+    runner = Runner(source_path, temp_directory)
+    with runner.compile() as r:
+        yield r
 
 
 @dataclasses.dataclass
