@@ -1,4 +1,4 @@
-from typing import Generator, List, Optional
+from typing import Generator, List, Optional, Any
 import dataclasses
 import contextlib
 import subprocess
@@ -34,6 +34,49 @@ class CompileError(Exception):
     pass
 
 
+@dataclasses.dataclass
+class Macro:
+    name: str
+    value: Optional[Any] = None
+
+
+def compile(temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+    flags = []
+    macros = macros or []
+    if os.name == 'posix':
+        compiler = 'gcc'
+        output_flag = f'-o {output}'
+        flags.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
+        if dynamic:
+            flags.extend(['-shared', '-fPIC'])
+        if not executable:
+            flags.append('-c')
+        if not dynamic and executable:
+            flags.append('-ldl')  # It's probably the main runner...
+        for m in macros:
+            flags.append(f'-D{m.name}={m.value if m.value is not None else ""}')
+    elif os.name == 'nt':
+        compiler = 'cl'
+        output_flag = f'/Fe{output}'
+        flags.append('/nologo')
+        if dynamic:
+            flags.append('/LD')
+        if not executable:
+            flags.append('/c')
+        for m in macros:
+            flags.append(f'/p:{m.name}={m.value if m.value is not None else ""}')
+    else:
+        raise NotImplementedError(f'Unknown os: {os.name}')
+
+    command = f'{compiler} {" ".join(flags)} {" ".join(files)} {output_flag}'
+
+    with working_directory(temp_directory):
+        code = os.system(command)
+
+    if code:
+        raise CompileError('Could not compile')
+
+
 @pytest.fixture(scope='session')
 def library(root_directory: str, temp_directory: str) -> str:
     name = 'library'
@@ -45,19 +88,7 @@ def library(root_directory: str, temp_directory: str) -> str:
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    if os.name == 'posix':
-        command = f'gcc -shared -fPIC {source_path} -o {compiled_path}'
-    elif os.name == 'nt':
-        command = f'cl /LD /nologo {source_path} /Fe{compiled_path}'
-    else:
-        raise NotImplementedError(f'Unknown os: {os.name}')
-
-    with working_directory(temp_directory):
-        code = os.system(command)
-
-    if code:
-        raise CompileError(f'Could not compile {source}')
-
+    compile(temp_directory, [source_path], output=compiled_path, dynamic=True)
     return compiled_path
 
 
@@ -71,28 +102,13 @@ class Runner:
         _, name = os.path.split(source)
         self.name = pathlib.Path(name).with_suffix('')
 
-    def compile(self) -> str:
+    def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
         if self.compiled_path is not None:
             return self.compiled_path
 
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
 
-        if not os.path.isfile(self.source):
-            raise FileNotFoundError(f'Missing test file: {self.source}')
-
-        if os.name == 'posix':
-            command = f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {self.source} -o {compiled_path}'
-        elif os.name == 'nt':
-            command = f'cl /nologo {self.source} /Fe{compiled_path}'
-        else:
-            raise NotImplementedError(f'Unknown os: {os.name}')
-
-        with working_directory(self.temp_directory):
-            code = os.system(command)
-
-        if code:
-            raise CompileError(f'Could not compile {self.source}')
-
+        compile(self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
         self.compiled_path = compiled_path
         return compiled_path
 
