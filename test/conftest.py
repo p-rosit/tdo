@@ -1,14 +1,12 @@
 from typing import Generator
 import dataclasses
+import contextlib
 import subprocess
 import json
 import os
+import shutil
+import uuid
 import pytest
-
-
-@pytest.fixture(scope='session')
-def root_directory() -> str:
-    return os.path.dirname(__file__)
 
 
 def dynamic_library(name: str) -> str:
@@ -36,53 +34,40 @@ class CompileError(Exception):
 
 
 @pytest.fixture(scope='session')
-def library(root_directory: str) -> Generator[str, None, None]:
+def library(root_directory: str, temp_directory: str) -> str:
     name = 'library'
     source = f'{name}.c'
     compiled = dynamic_library(name)
 
     source_path = os.path.join(root_directory, source)
-    compiled_path = os.path.join(root_directory, compiled)
-    object_path = os.path.join(root_directory, f'{name}.obj')
-
+    compiled_path = os.path.join(temp_directory, compiled)
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
     if os.name == 'posix':
         command = f'gcc -shared -fPIC {source_path} -o {compiled_path}'
     elif os.name == 'nt':
-        command = f'cl /LD /nologo {source_path} /Fe{compiled_path} /Fo{object_path}'
+        command = f'cl /LD /nologo {source_path} /Fe{compiled_path}'
     else:
         raise NotImplementedError(f'Unknown os: {os.name}')
 
-    code = os.system(command)
-
-    try:
-        os.remove(object_path)
-    except FileNotFoundError:
-        pass
+    with working_directory(temp_directory):
+        code = os.system(command)
 
     if code:
         raise CompileError(f'Could not compile {source}')
 
-    yield compiled_path
-
-    os.remove(compiled_path)
-    if os.name == 'nt':
-        # msvc just barfs files wherever it pleases
-        os.remove(os.path.join(root_directory, f'{name}.exp'))
-        os.remove(os.path.join(root_directory, f'{name}.lib'))
+    return compiled_path
 
 
 @pytest.fixture(scope='session')
-def runner(root_directory: str) -> Generator[str, None, None]:
+def runner(root_directory: str, temp_directory: str) -> str:
     name = 'runner'
     source = f'{name}.c'
     compiled = executable(name)
 
     source_path = os.path.join(root_directory, '..', 'src', source)
-    compiled_path = os.path.join(root_directory, compiled)
-    object_path = os.path.join(root_directory, f'{name}.obj')
+    compiled_path = os.path.join(temp_directory, compiled)
 
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
@@ -90,23 +75,17 @@ def runner(root_directory: str) -> Generator[str, None, None]:
     if os.name == 'posix':
         command = f'gcc -fsanitize=address,undefined -ldl -std=c99 -Werror {source_path} -o {compiled_path}'
     elif os.name == 'nt':
-        command = f'cl /nologo {source_path} /Fe{compiled_path} /Fo{object_path}'
+        command = f'cl /nologo {source_path} /Fe{compiled_path}'
     else:
         raise NotImplementedError(f'Unknown os: {os.name}')
 
-    code = os.system(command)
-
-    try:
-        os.remove(object_path)
-    except FileNotFoundError:
-        pass
+    with working_directory(temp_directory):
+        code = os.system(command)
 
     if code:
         raise CompileError(f'Could not compile {source}')
 
-    yield compiled_path
-
-    os.remove(compiled_path)
+    return compiled_path
 
 
 @dataclasses.dataclass
@@ -236,3 +215,23 @@ def run_tests(runner: str):
 
         return result, err
     return run
+
+
+@pytest.fixture(scope='session')
+def root_directory() -> str:
+    return os.path.dirname(__file__)
+
+
+@pytest.fixture(scope='session')
+def temp_directory(root_directory: str) -> Generator[str, None, None]:
+    os.mkdir(name := os.path.join(root_directory, f'temp_{uuid.uuid4()}'))
+    yield name
+    shutil.rmtree(name)
+
+
+@contextlib.contextmanager
+def working_directory(path: str):
+    current = os.getcwd()
+    os.chdir(path)
+    yield
+    os.chdir(current)
