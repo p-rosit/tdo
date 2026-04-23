@@ -1,6 +1,7 @@
 #include "../platform.h"
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <unistd.h>
 #include <dlfcn.h>
@@ -52,9 +53,15 @@ void tdo_dynamic_library_unload(TdoLibrary lib) {
     dlclose(lib);
 }
 
+union TdoSymbolAndVoid {
+    void *void_ptr;
+    TdoTestSymbol *function_ptr;
+};
+
 TdoTestSymbol *tdo_dynamic_symbol_load(TdoLibrary lib, char const *name) {
     dlerror();
-    return (TdoTestSymbol*) dlsym(lib, name);
+    union TdoSymbolAndVoid symbol = { .void_ptr = dlsym(lib, name) };
+    return symbol.function_ptr;
 }
 
 char const *tdo_dynamic_get_error(struct TdoArena *arena) {
