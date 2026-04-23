@@ -5,6 +5,11 @@
 #include "../run.h"
 #include <string.h>
 #include <errno.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <poll.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 
 struct TdoRun {
     struct TdoTest *test;

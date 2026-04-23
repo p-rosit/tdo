@@ -1,8 +1,11 @@
 #include "platform.h"
 #include "str.h"
+#include "arguments.h"
 #include "run.h"
 #include <stdarg.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #if defined(TDO_POSIX)
     #include "platform/run_posix.c"

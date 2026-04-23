@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdint.h>
 
 struct TdoString tdo_string_init(void) {
     return (struct TdoString) { .bytes = NULL, .length = 0 };
