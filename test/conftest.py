@@ -71,11 +71,9 @@ class Runner:
         _, name = os.path.split(source)
         self.name = pathlib.Path(name).with_suffix('')
 
-    @contextlib.contextmanager
-    def compile(self) -> Generator[str, None, None]:
+    def compile(self) -> str:
         if self.compiled_path is not None:
-            yield self.compiled_path
-            return
+            return self.compiled_path
 
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
 
@@ -96,15 +94,13 @@ class Runner:
             raise CompileError(f'Could not compile {self.source}')
 
         self.compiled_path = compiled_path
-        yield compiled_path
+        return compiled_path
 
 
 @pytest.fixture(scope='session')
-def runner(root_directory: str, temp_directory: str) -> str:
+def runner(root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
-    runner = Runner(source_path, temp_directory)
-    with runner.compile() as r:
-        yield r
+    return Runner(source_path, temp_directory)
 
 
 @dataclasses.dataclass
@@ -188,10 +184,10 @@ class ResultStop(ResultDone):
 
 
 @pytest.fixture
-def run_tests(runner: str):
+def run_tests(runner: Runner):
     def run(tests: str):
         p = subprocess.Popen(
-            runner,
+            runner.compile(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
