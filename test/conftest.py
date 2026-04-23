@@ -1,4 +1,4 @@
-from typing import Generator, List, Optional, Any
+from typing import Generator, List, Optional, Any, Dict, Tuple
 import dataclasses
 import contextlib
 import subprocess
@@ -34,7 +34,7 @@ class CompileError(Exception):
     pass
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Macro:
     name: str
     value: Optional[Any] = None
@@ -93,7 +93,7 @@ def library(root_directory: str, temp_directory: str) -> str:
 
 
 class Runner:
-    compiled_path: Optional[str] = None
+    compiled_path: Dict[Tuple[Tuple[str, ...], Tuple[Macro, ...]], str] = {}
 
     def __init__(self, source: str, temp_directory: str):
         self.source = source
@@ -103,13 +103,14 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        if self.compiled_path is not None:
-            return self.compiled_path
+        key = (tuple(files or []), tuple(macros or []))
+        if (compiled_path := self.compiled_path.get(key, None)) is not None:
+            return compiled_path
 
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
 
         compile(self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
-        self.compiled_path = compiled_path
+        self.compiled_path[key] = compiled_path
         return compiled_path
 
 
