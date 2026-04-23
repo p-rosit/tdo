@@ -52,22 +52,35 @@ struct TdoArenaState tdo_arena_state_get(struct TdoArena *arena) {
 }
 
 void tdo_arena_state_set(struct TdoArena *arena, struct TdoArenaState state) {
-    struct TdoArenaNode *node = arena->first;
+    struct TdoArenaNode *node;
 
-    for (; node != NULL; node = node->next) {
-        if (node == state.node) {
-            if (node->current < state.current) {
-                char *start = (char*) node + sizeof(struct TdoArenaNode);
-                fprintf(stderr, "Cannot reset arena state forward: current=%zu, new=%zu\n", node->current - start, state.current - start);
-                abort();
+    if (arena->latest == state.node) {
+        node = arena->latest;
+
+        if (node->current < state.current) {
+            char *start = (char*) node + sizeof(struct TdoArenaNode);
+            fprintf(stderr, "Cannot reset arena state forward: current=%zu, new=%zu\n", node->current - start, state.current - start);
+            abort();
+        }
+        node->current = state.current;
+        node = node->next;
+    } else {
+        node = arena->first;
+        for (; node != NULL; node = node->next) {
+            if (node == state.node) {
+                if (node->current < state.current) {
+                    char *start = (char*) node + sizeof(struct TdoArenaNode);
+                    fprintf(stderr, "Cannot reset arena state forward: current=%zu, new=%zu\n", node->current - start, state.current - start);
+                    abort();
+                }
+
+                node->current = state.current;
+                node = node->next;
+                break;
             }
 
-            node->current = state.current;
-            node = node->next;
-            break;
+            node->current = node->end;
         }
-
-        node->current = node->end;
     }
 
     tdo_arena_state_clear(&(struct TdoArena) { .first = node, .latest = NULL });
