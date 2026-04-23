@@ -164,7 +164,7 @@ class Result:
 @dataclasses.dataclass
 class ResultError(Result):
     error: str
-    step: Step
+    step: Optional[Step]
 
 
 @dataclasses.dataclass
