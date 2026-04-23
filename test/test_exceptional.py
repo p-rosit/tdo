@@ -1,6 +1,6 @@
 import os
 import pytest
-from conftest import Runner, ResultComplete, ResultError, StepTest, Macro, compile
+from conftest import Runner, ResultComplete, ResultError, Macro, compile
 
 
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
