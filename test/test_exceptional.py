@@ -73,3 +73,38 @@ def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, li
             step=None,
         ),
     ]
+
+
+@pytest.mark.parametrize('amount', (1, 3, 9, 16))
+@pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
+def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock_read.c')
+    mock_object = os.path.join(temp_directory, f'mock_read{amount}.obj')
+    compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_READ_AMOUNT', value=amount)], executable=False)
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, executable=runner.compile(files=[mock_object], macros=[Macro(name='read', value='tdo_mock_read')]))
+
+    found_error = False
+    for r in result:
+        found_error = found_error or isinstance(r, ResultError)
+        if not found_error:
+            assert r == ResultComplete(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                stdout='',
+                stderr='',
+            )
+        else:
+            assert r == ResultError(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                error='could not read output',
+                step=None,
+            )
+
+    assert len(result) == 3
