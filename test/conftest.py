@@ -200,6 +200,11 @@ class ResultStop(ResultDone):
     stop: int
 
 
+@dataclasses.dataclass
+class ErrorCode:
+    code: int
+
+
 @pytest.fixture
 def run_tests(runner: Runner):
     def run(tests: str, executable: Optional[str] = None, args: Optional[List[str]] = None):
@@ -216,7 +221,7 @@ def run_tests(runner: Runner):
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
-            return None, err
+            return ErrorCode(code=p.returncode), err
 
         result = []
         for r in raw_result:

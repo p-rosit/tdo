@@ -3,6 +3,33 @@ import pytest
 from conftest import Runner, ResultComplete, ResultError, Macro, compile
 
 
+def test_malloc_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock/malloc.c')
+    mock_object = os.path.join(temp_directory, 'malloc.obj')
+    compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='malloc', value='tdo_mock_malloc'),
+            Macro(name='main', value='tdo_runner_main'),
+        ]
+    )
+
+    amount = 0
+    while True:
+        result_or_code, _ = run_tests(f"""
+            test::{library}::test_success
+            test::{library}::test_success
+            test::{library}::test_success
+        """, executable=r, args=['--mock-malloc-max', amount])
+        if isinstance(result_or_code, list):
+            break
+        else:
+            assert result_or_code.code == 3
+        amount += 1
+
+
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
     mock_source = os.path.join(root_directory, 'mock', 'fork.c')
