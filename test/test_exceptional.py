@@ -5,8 +5,8 @@ from conftest import Runner, ResultComplete, ResultError, Macro, compile
 
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
-    mock_source = os.path.join(root_directory, 'mock_fork.c')
-    mock_object = os.path.join(temp_directory, 'mock_fork.obj')
+    mock_source = os.path.join(root_directory, 'mock', 'fork.c')
+    mock_object = os.path.join(temp_directory, 'fork.obj')
     compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_FORK_AMOUNT', value=1)], executable=False)
     result, _ = run_tests(f"""
         test::{library}::test_success
@@ -38,12 +38,11 @@ def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, li
     ]
 
 
-
 @pytest.mark.parametrize('amount', (3, 4, 5))
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
-    mock_source = os.path.join(root_directory, 'mock_pipe.c')
-    mock_object = os.path.join(temp_directory, f'mock_pipe{amount}.obj')
+    mock_source = os.path.join(root_directory, 'mock', 'pipe.c')
+    mock_object = os.path.join(temp_directory, f'pipe{amount}.obj')
     compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_PIPE_AMOUNT', value=amount)], executable=False)
     result, _ = run_tests(f"""
         test::{library}::test_success
@@ -78,8 +77,8 @@ def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, li
 @pytest.mark.parametrize('amount', (1, 3, 9, 16))
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
-    mock_source = os.path.join(root_directory, 'mock_read.c')
-    mock_object = os.path.join(temp_directory, f'mock_read{amount}.obj')
+    mock_source = os.path.join(root_directory, 'mock', 'read.c')
+    mock_object = os.path.join(temp_directory, f'read{amount}.obj')
     compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_READ_AMOUNT', value=amount)], executable=False)
     result, _ = run_tests(f"""
         test::{library}::test_success
