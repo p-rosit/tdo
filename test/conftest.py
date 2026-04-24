@@ -213,7 +213,10 @@ def run_tests(runner: Runner):
         )
         out, err = p.communicate(input=tests)
 
-        raw_result = json.loads(out)
+        try:
+            raw_result = json.loads(out)
+        except json.JSONDecodeError:
+            return None, err
 
         result = []
         for r in raw_result:
