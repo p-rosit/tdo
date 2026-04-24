@@ -7,12 +7,21 @@ from conftest import Runner, ResultComplete, ResultError, Macro, compile
 def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
     mock_source = os.path.join(root_directory, 'mock', 'fork.c')
     mock_object = os.path.join(temp_directory, 'fork.obj')
-    compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_FORK_AMOUNT', value=1)], executable=False)
+    compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='fork', value='tdo_mock_fork'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
     result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_success
         test::{library}::test_success
-    """, executable=runner.compile(files=[mock_object], macros=[Macro(name='fork', value='tdo_mock_fork')]))
+    """, executable=r, args=['--mock-fork-max', 1])
     assert result == [
         ResultComplete(
             file=library,
