@@ -88,13 +88,23 @@ def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, li
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
     mock_source = os.path.join(root_directory, 'mock', 'read.c')
-    mock_object = os.path.join(temp_directory, f'read{amount}.obj')
-    compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_READ_AMOUNT', value=amount)], executable=False)
+    mock_object = os.path.join(temp_directory, 'read.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='read', value='tdo_mock_read'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
     result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_success
         test::{library}::test_success
-    """, executable=runner.compile(files=[mock_object], macros=[Macro(name='read', value='tdo_mock_read')]))
+    """, executable=r, args=['--mock-read-max', amount])
 
     found_error = False
     for r in result:
