@@ -202,9 +202,9 @@ class ResultStop(ResultDone):
 
 @pytest.fixture
 def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None):
+    def run(tests: str, executable: Optional[str] = None, args: Optional[List[str]] = None):
         p = subprocess.Popen(
-            executable or runner.compile(),
+            [executable or runner.compile(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

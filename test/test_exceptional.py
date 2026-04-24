@@ -42,13 +42,23 @@ def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, li
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
     mock_source = os.path.join(root_directory, 'mock', 'pipe.c')
-    mock_object = os.path.join(temp_directory, f'pipe{amount}.obj')
-    compile(temp_directory, [mock_source], mock_object, macros=[Macro(name='TDO_PIPE_AMOUNT', value=amount)], executable=False)
+    mock_object = os.path.join(temp_directory, 'pipe.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='pipe', value='tdo_mock_pipe'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
     result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_success
         test::{library}::test_success
-    """, executable=runner.compile(files=[mock_object], macros=[Macro(name='pipe', value='tdo_mock_pipe')]))
+    """, r, args=['--mock-pipe-max', amount])
     assert result == [
         ResultComplete(
             file=library,
