@@ -163,3 +163,48 @@ def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, li
             )
 
     assert len(result) == 3
+
+
+@pytest.mark.parametrize('amount', (1, 3, 9, 16))
+@pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
+def test_poll_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock', 'poll.c')
+    mock_object = os.path.join(temp_directory, 'poll.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='poll', value='tdo_mock_poll'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, executable=r, args=['--mock-poll-max', amount])
+
+    found_error = False
+    for r in result:
+        found_error = found_error or isinstance(r, ResultError)
+        if not found_error:
+            assert r == ResultComplete(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                stdout='',
+                stderr='',
+            )
+        else:
+            assert r == ResultError(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                error='could not read output',
+                step=None,
+            )
+
+    assert len(result) == 3
