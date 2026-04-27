@@ -41,34 +41,35 @@ class Macro:
 
 
 def compile(temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
-    flags = []
+    fs = []
     macros = macros or []
     if os.name == 'posix':
         compiler = 'gcc'
         output_flag = f'-o {output}'
-        flags.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
+        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
         if dynamic:
-            flags.extend(['-shared', '-fPIC'])
+            fs.extend(['-shared', '-fPIC'])
         if not executable:
-            flags.append('-c')
+            fs.append('-c')
         if not dynamic and executable:
-            flags.append('-ldl')  # It's probably the main runner...
+            fs.append('-ldl')  # It's probably the main runner...
         for m in macros:
-            flags.append(f'-D{m.name}={m.value if m.value is not None else ""}')
+            fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
     elif os.name == 'nt':
         compiler = 'cl'
         output_flag = f'/Fe{output}'
-        flags.append('/nologo')
+        fs.append('/nologo')
         if dynamic:
-            flags.append('/LD')
+            fs.append('/LD')
         if not executable:
-            flags.append('/c')
+            fs.append('/c')
         for m in macros:
-            flags.append(f'/p:{m.name}={m.value if m.value is not None else ""}')
+            fs.append(f'/p:{m.name}={m.value if m.value is not None else ""}')
     else:
         raise NotImplementedError(f'Unknown os: {os.name}')
 
-    command = f'{compiler} {" ".join(flags)} {" ".join(files)} {output_flag}'
+    fs.extend(flags or [])
+    command = f'{compiler} {" ".join(files)} {" ".join(fs)} {output_flag}'
 
     with working_directory(temp_directory):
         code = os.system(command)
