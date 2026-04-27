@@ -208,3 +208,45 @@ def test_poll_fails(temp_directory: str, root_directory: str, runner: Runner, li
             )
 
     assert len(result) == 3
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
+def test_read_one_byte_at_a_time(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'one_byte_per_read.c')
+    mock_object = os.path.join(temp_directory, 'one_byte_per_read.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[Macro(name='read', value='tdo_mock_read')],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r)
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+    ]
