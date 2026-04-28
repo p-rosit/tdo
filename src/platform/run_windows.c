@@ -325,7 +325,6 @@ void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoR
 void tdo_run_handle_pipe_disconnect(struct TdoArena *arena, struct TdoRun *run, struct TdoLog *log, struct TdoOverlap *overlap, struct TdoRunStatus *status, FILE *output) {
     overlap->status = TDO_PIPE_IDLE;
     DisconnectNamedPipe(log->fd);
-    tdo_run_maybe_report_exit(arena, run, status, output);
 }
 
 void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
@@ -373,6 +372,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                        tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                         fflush(NULL);
@@ -425,6 +425,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                             // next read started
                         } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                            tdo_run_maybe_report_exit(arena, run, status, output);
                         } else {
                             fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                             fflush(NULL);
@@ -434,6 +435,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 } else {
                     // no bytes transferred, pipe closed
                     tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                    tdo_run_maybe_report_exit(arena, run, status, output);
                 }
                 break;
             case TDO_PIPE_IDLE: fprintf(stderr, "Idle pipe received completion packet\n"); fflush(NULL); abort();
@@ -461,7 +463,11 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         }
 
         if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
+            int s = ov->status;
             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+            if (s != TDO_PIPE_CANCELLING) {
+                tdo_run_maybe_report_exit(arena, run, status, output);
+            }
         } else {
             fprintf(stderr, "Read from pipe failed: %lu\n", GetLastError());
             fflush(NULL);
