@@ -299,6 +299,54 @@ def test_ConnectNamedPipe_fails(temp_directory: str, root_directory: str, runner
     ]
 
 
+@pytest.mark.parametrize('amount', (2, 3))
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_CreateFile_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock', 'CreateFile.c')
+    mock_object = os.path.join(temp_directory, 'CreateFile.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='CreateFileW', value='tdo_mock_CreateFileW'),
+            Macro(name='CreateFileA', value='tdo_mock_CreateFileA'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['--mock-create-file-max', amount])
+
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultError(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            error='could not setup log redirection',
+            step=None,
+        ),
+        ResultError(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            error='could not setup log redirection',
+            step=None,
+        ),
+    ]
+
+
 def test_crash_on_internal_start(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
     mock_source = os.path.join(root_directory, 'mock', 'crash_on_internal_start.c')
     mock_object = os.path.join(temp_directory, 'crash_on_internal_start.obj')
