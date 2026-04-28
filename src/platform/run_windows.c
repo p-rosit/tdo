@@ -518,7 +518,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     }
 
     char exe_name[MAX_PATH];
-    DWORD length = GetModuleFileNameA(NULL, (LPSTR) &exe_name, sizeof(exe_name));
+    DWORD length = GetModuleFileName(NULL, (LPSTR) &exe_name, sizeof(exe_name));
     if (length == 0) {
         fprintf(stderr, "Could not get executable name: %lu\n", GetLastError());
         fflush(NULL);
