@@ -64,7 +64,7 @@ def compile(temp_directory: str, files: List[str], output: str, flags: Optional[
         if not executable:
             fs.append('/c')
         for m in macros:
-            fs.append(f'/p:{m.name}={m.value if m.value is not None else ""}')
+            fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
     else:
         raise NotImplementedError(f'Unknown os: {os.name}')
 
