@@ -287,7 +287,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
 }
 
 void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output) {
-    if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+    if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0 || tdo_run_pipes_cancelling(run)) return;
 
     LARGE_INTEGER end_time = tdo_time_get();
     double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
