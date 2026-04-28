@@ -297,3 +297,59 @@ def test_ConnectNamedPipe_fails(temp_directory: str, root_directory: str, runner
             step=None,
         ),
     ]
+
+
+def test_crash_on_internal_start(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'crash_on_internal_start.c')
+    mock_object = os.path.join(temp_directory, 'crash_on_internal_start.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[Macro(name='main', value='tdo_runner_main')],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r)
+
+    if os.name == 'posix':
+        expected = [
+            ResultComplete(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                stdout='',
+                stderr='',
+            ),
+            ResultComplete(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                stdout='',
+                stderr='',
+            ),
+        ]
+    elif os.name == 'nt':
+        expected = [
+            ResultError(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                error='no data in status pipe',
+                step=None,
+            ),
+            ResultError(
+                file=library,
+                name='test_success',
+                duration=pytest.approx(0.0, abs=100.0),
+                error='no data in status pipe',
+                step=None,
+            ),
+        ]
+    else:
+        raise NotImplentedError('Unknown platform')
+
+    assert result == expected
