@@ -1,6 +1,6 @@
 import os
 import pytest
-from conftest import Runner, ResultComplete, ResultError, Macro, compile
+from conftest import Runner, ResultComplete, ResultError, Macro, ErrorCode, compile
 
 
 def test_malloc_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
@@ -353,3 +353,29 @@ def test_crash_on_internal_start(temp_directory: str, root_directory: str, runne
         raise NotImplentedError('Unknown platform')
 
     assert result == expected
+
+
+@pytest.mark.parametrize('amount', (3, 4, 5))
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_CreateNamedPipe_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock', 'CreateNamedPipe.c')
+    mock_object = os.path.join(temp_directory, 'CreateNamedPipe.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='CreateNamedPipeW', value='tdo_mock_CreateNamedPipeW'),
+            Macro(name='CreateNamedPipeA', value='tdo_mock_CreateNamedPipeA'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['-j8', '--mock-create-max', amount])
+
+    assert result == ErrorCode(code=13)
