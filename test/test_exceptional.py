@@ -376,6 +376,6 @@ def test_CreateNamedPipe_fails(temp_directory: str, root_directory: str, runner:
         test::{library}::test_success
         test::{library}::test_success
         test::{library}::test_success
-    """, r, args=['-j8', '--mock-create-max', amount])
+    """, r, args=['-j8', '--mock-create-pipe-max', amount])
 
     assert result == ErrorCode(code=13)

@@ -5,11 +5,11 @@
 #include <string.h>
 #include <stdio.h>
 
-static int create_max = 0;
-static int create_amount = 0;
+static int create_pipe_max = 0;
+static int create_pipe_amount = 0;
 
 HANDLE __stdcall tdo_mock_CreateNamedPipeW(LPCWSTR lpName, DWORD dwOpenMode, DWORD dwPipeMode, DWORD nMaxInstances, DWORD nOutBufferSize, DWORD nInBufferSize, DWORD nDefaultTimeOut, LPSECURITY_ATTRIBUTES lpSecurityAttributes) {
-    if (create_amount++ < create_max) {
+    if (create_pipe_amount++ < create_pipe_max) {
         return CreateNamedPipeW(lpName, dwOpenMode, dwPipeMode, nMaxInstances, nOutBufferSize, nInBufferSize, nDefaultTimeOut, lpSecurityAttributes);
     }
     SetLastError(ERROR_ACCESS_DENIED); // pretend error
@@ -17,7 +17,7 @@ HANDLE __stdcall tdo_mock_CreateNamedPipeW(LPCWSTR lpName, DWORD dwOpenMode, DWO
 }
 
 HANDLE __stdcall tdo_mock_CreateNamedPipeA(LPCSTR lpName, DWORD dwOpenMode, DWORD dwPipeMode, DWORD nMaxInstances, DWORD nOutBufferSize, DWORD nInBufferSize, DWORD nDefaultTimeOut, LPSECURITY_ATTRIBUTES lpSecurityAttributes) {
-    if (create_amount++ < create_max) {
+    if (create_pipe_amount++ < create_pipe_max) {
         return CreateNamedPipeA(lpName, dwOpenMode, dwPipeMode, nMaxInstances, nOutBufferSize, nInBufferSize, nDefaultTimeOut, lpSecurityAttributes);
     }
     SetLastError(ERROR_ACCESS_DENIED); // pretend error
@@ -39,13 +39,13 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Not enough arguments, expected max amount of calls to CreateNamedPipe\n");
         abort();
     }
-    if (strcmp(argv[argc - 2], "--mock-create-max") != 0) {
-        fprintf(stderr, "Invalid final argument, expected '--mock-create-max', got '%s'\n", argv[argc - 2]);
+    if (strcmp(argv[argc - 2], "--mock-create-pipe-max") != 0) {
+        fprintf(stderr, "Invalid final argument, expected '--mock-create-pipe-max', got '%s'\n", argv[argc - 2]);
         abort();
     }
 
-    create_max = atoi(argv[argc - 1]);
-    if (create_max <= 0 && strcmp(argv[argc - 1], "0") != 0) {
+    create_pipe_max = atoi(argv[argc - 1]);
+    if (create_pipe_max <= 0 && strcmp(argv[argc - 1], "0") != 0) {
         fprintf(stderr, "Expected number of calls to CreateNamedPipe, got '%s'\n", argv[argc - 1]);
         abort();
     }
