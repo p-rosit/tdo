@@ -161,9 +161,6 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     tdo_log_reset(&run->out, run->out.fd);
     tdo_log_reset(&run->err, run->err.fd);
     tdo_log_reset(&run->status, run->status.fd);
-    run->out_ov.status = TDO_PIPE_WAITING;
-    run->err_ov.status = TDO_PIPE_WAITING;
-    run->status_ov.status = TDO_PIPE_WAITING;
 
     // Start opening connection
     enum TdoError err_read = tdo_pipe_connect(run, &run->out_ov);
@@ -172,6 +169,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_setup;
     }
+    run->out_ov.status = TDO_PIPE_WAITING;
 
     err_read = tdo_pipe_connect(run, &run->err_ov);
     if (err_read != TDO_ERROR_OK) {
@@ -179,6 +177,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_err_pipe;
     }
+    run->err_ov.status = TDO_PIPE_WAITING;
 
     err_read = tdo_pipe_connect(run, &run->status_ov);
     if (err_read != TDO_ERROR_OK) {
@@ -186,6 +185,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_status_pipe;
     }
+    run->status_ov.status = TDO_PIPE_WAITING;
     
     SECURITY_ATTRIBUTES sa;
     {
