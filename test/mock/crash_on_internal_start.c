@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     }
     if (is_child) {
         fprintf(stderr, "Crashing child before main...\n");
+        fflush(NULL);
         abort();
     }
     return tdo_runner_main(argc, argv);
