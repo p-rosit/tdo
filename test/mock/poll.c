@@ -28,5 +28,5 @@ int main(int argc, char **argv) {
         abort();
     }
 
-    return tdo_runner_main(argc - 2, argv + 2);
+    return tdo_runner_main(argc - 2, argv);
 }
