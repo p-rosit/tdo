@@ -597,3 +597,27 @@ def test_GetModuleFileName_fails(temp_directory: str, root_directory: str, runne
     """, r, args=['--mock-get-module-name-max', 0])
 
     assert result == ErrorCode(code=13)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_GetQueuedCompletionStatus_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'GetQueuedCompletionStatus.c')
+    mock_object = os.path.join(temp_directory, 'GetQueuedCompletionStatus.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='GetQueuedCompletionStatus', value='tdo_mock_GetQueuedCompletionStatus'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['--mock-get-queued-max', 2])
+
+    assert result == ErrorCode(code=pytest.approx(0, abs=1e20))
