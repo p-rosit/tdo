@@ -211,9 +211,9 @@ def test_poll_fails(temp_directory: str, root_directory: str, runner: Runner, li
 
 
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
-def test_read_one_byte_at_a_time(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
-    mock_source = os.path.join(root_directory, 'mock', 'one_byte_per_read.c')
-    mock_object = os.path.join(temp_directory, 'one_byte_per_read.obj')
+def test_posix_read_one_byte_at_a_time(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'posix_one_byte_per_read.c')
+    mock_object = os.path.join(temp_directory, 'posix_one_byte_per_read.obj')
     if not os.path.isfile(mock_object):
         compile(temp_directory, [mock_source], mock_object, executable=False)
 
