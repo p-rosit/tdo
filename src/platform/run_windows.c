@@ -527,12 +527,12 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     DWORD length = GetModuleFileName(NULL, (LPSTR) &exe_name, sizeof(exe_name));
     if (length == 0) {
         fprintf(stderr, "Could not get executable name: %lu\n", GetLastError());
-        fflush(NULL);
-        abort();
+        result = TDO_ERROR_OS;
+        goto error_setup;
     } else if (length >= sizeof(exe_name)) {
         fprintf(stderr, "Could not get executable name, buffer too small\n");
-        fflush(NULL);
-        abort();
+        result = TDO_ERROR_OS;
+        goto error_setup;
     }
     status->executable_name = tdo_string_init();
     if (!tdo_string_append(&status->executable_name, arena, length, exe_name)) {
