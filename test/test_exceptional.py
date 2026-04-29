@@ -497,3 +497,28 @@ def test_CreateIoCompletionPort_setup_fails(temp_directory: str, root_directory:
     """, r, args=['--mock-create-port-max', 0])
 
     assert result == ErrorCode(code=13)
+
+
+@pytest.mark.parametrize('amount', (4, 5, 6))
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_CreateIoCompletionPort_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock', 'CreateIoCompletionPort.c')
+    mock_object = os.path.join(temp_directory, 'CreateIoCompletionPort.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='CreateIoCompletionPort', value='tdo_mock_CreateIoCompletionPort'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['-j8', '--mock-create-port-max', amount])
+
+    assert result == ErrorCode(code=13)

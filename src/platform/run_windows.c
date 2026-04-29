@@ -685,9 +685,21 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         };
 
         // set up IOCP
-        CreateIoCompletionPort(h_out, status->iocp, (ULONG_PTR) &status->runs[i], 0);
-        CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR) &status->runs[i], 0);
-        CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR) &status->runs[i], 0);
+        if (CreateIoCompletionPort(h_out, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate out pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
+        if (CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate err pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
+        if (CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate status pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
     }
 
     result = TDO_ERROR_OK;
