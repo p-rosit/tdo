@@ -543,7 +543,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     status->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
     if (status->iocp == NULL) {
         fprintf(stderr, "could not create IOCP: %lu\n", GetLastError());
-        result = TDO_ERROR_PIPE;
+        result = TDO_ERROR_OS;
         goto error_setup;
     }
 
