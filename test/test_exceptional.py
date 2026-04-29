@@ -547,3 +547,28 @@ def test_CreateJobObject_fails(temp_directory: str, root_directory: str, runner:
     """, r, args=['--mock-create-job-max', 0])
 
     assert result == ErrorCode(code=13)
+
+
+@pytest.mark.parametrize('amount', (0, 1))
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_SetInformationJobObject_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
+    mock_source = os.path.join(root_directory, 'mock', 'SetInformationJobObject.c')
+    mock_object = os.path.join(temp_directory, 'SetInformationJobObject.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='SetInformationJobObject', value='tdo_mock_SetInformationJobObject'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['--mock-set-job-max', amount])
+
+    assert result == ErrorCode(code=13)
