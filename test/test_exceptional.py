@@ -252,6 +252,48 @@ def test_posix_read_one_byte_at_a_time(temp_directory: str, root_directory: str,
     ]
 
 
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_windows_read_one_byte_at_a_time(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'windows_one_byte_per_read.c')
+    mock_object = os.path.join(temp_directory, 'windows_one_byte_per_read.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[Macro(name='ReadFile', value='tdo_mock_ReadFile')],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r)
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+    ]
+
+
 @pytest.mark.parametrize('amount', (3, 4, 5))
 @pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
 def test_ConnectNamedPipe_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests, amount: int):
