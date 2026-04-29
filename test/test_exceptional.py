@@ -427,3 +427,49 @@ def test_CreateNamedPipe_fails(temp_directory: str, root_directory: str, runner:
     """, r, args=['-j8', '--mock-create-pipe-max', amount])
 
     assert result == ErrorCode(code=13)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
+def test_AssignProcessToJobObject_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests):
+    mock_source = os.path.join(root_directory, 'mock', 'AssignProcessToJobObject.c')
+    mock_object = os.path.join(temp_directory, 'AssignProcessToJobObject.obj')
+    if not os.path.isfile(mock_object):
+        compile(temp_directory, [mock_source], mock_object, executable=False)
+
+    r = runner.compile(
+        files=[mock_object],
+        macros=[
+            Macro(name='AssignProcessToJobObject', value='tdo_mock_AssignProcessToJobObject'),
+            Macro(name='main', value='tdo_runner_main'),
+        ],
+    )
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_success
+        test::{library}::test_success
+    """, r, args=['--mock-assign-process-max', 1])
+
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultError(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            error='could not create child process',
+            step=None,
+        ),
+        ResultError(
+            file=library,
+            name='test_success',
+            duration=pytest.approx(0.0, abs=100.0),
+            error='could not create child process',
+            step=None,
+        ),
+    ]
