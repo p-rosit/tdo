@@ -161,9 +161,6 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     tdo_log_reset(&run->out, run->out.fd);
     tdo_log_reset(&run->err, run->err.fd);
     tdo_log_reset(&run->status, run->status.fd);
-    run->out_ov.status = TDO_PIPE_WAITING;
-    run->err_ov.status = TDO_PIPE_WAITING;
-    run->status_ov.status = TDO_PIPE_WAITING;
 
     // Start opening connection
     enum TdoError err_read = tdo_pipe_connect(run, &run->out_ov);
@@ -172,6 +169,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_setup;
     }
+    run->out_ov.status = TDO_PIPE_WAITING;
 
     err_read = tdo_pipe_connect(run, &run->err_ov);
     if (err_read != TDO_ERROR_OK) {
@@ -179,6 +177,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_err_pipe;
     }
+    run->err_ov.status = TDO_PIPE_WAITING;
 
     err_read = tdo_pipe_connect(run, &run->status_ov);
     if (err_read != TDO_ERROR_OK) {
@@ -186,6 +185,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
         status->log_setup_failed = true;
         goto error_status_pipe;
     }
+    run->status_ov.status = TDO_PIPE_WAITING;
     
     SECURITY_ATTRIBUTES sa;
     {
@@ -287,7 +287,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
 }
 
 void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output) {
-    if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0) return;
+    if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0 || tdo_run_pipes_cancelling(run)) return;
 
     LARGE_INTEGER end_time = tdo_time_get();
     double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
@@ -325,7 +325,6 @@ void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoR
 void tdo_run_handle_pipe_disconnect(struct TdoArena *arena, struct TdoRun *run, struct TdoLog *log, struct TdoOverlap *overlap, struct TdoRunStatus *status, FILE *output) {
     overlap->status = TDO_PIPE_IDLE;
     DisconnectNamedPipe(log->fd);
-    tdo_run_maybe_report_exit(arena, run, status, output);
 }
 
 void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, struct TdoArguments args, FILE *output, struct TdoArray tests) {
@@ -373,6 +372,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                        tdo_run_maybe_report_exit(arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                         fflush(NULL);
@@ -425,6 +425,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                             // next read started
                         } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                            tdo_run_maybe_report_exit(arena, run, status, output);
                         } else {
                             fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                             fflush(NULL);
@@ -434,6 +435,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 } else {
                     // no bytes transferred, pipe closed
                     tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+                    tdo_run_maybe_report_exit(arena, run, status, output);
                 }
                 break;
             case TDO_PIPE_IDLE: fprintf(stderr, "Idle pipe received completion packet\n"); fflush(NULL); abort();
@@ -461,7 +463,11 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         }
 
         if (code == ERROR_BROKEN_PIPE || code == ERROR_OPERATION_ABORTED) {
+            int s = ov->status;
             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
+            if (s != TDO_PIPE_CANCELLING) {
+                tdo_run_maybe_report_exit(arena, run, status, output);
+            }
         } else {
             fprintf(stderr, "Read from pipe failed: %lu\n", GetLastError());
             fflush(NULL);
@@ -518,15 +524,15 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     }
 
     char exe_name[MAX_PATH];
-    DWORD length = GetModuleFileNameA(NULL, (LPSTR) &exe_name, sizeof(exe_name));
+    DWORD length = GetModuleFileName(NULL, (LPSTR) &exe_name, sizeof(exe_name));
     if (length == 0) {
         fprintf(stderr, "Could not get executable name: %lu\n", GetLastError());
-        fflush(NULL);
-        abort();
+        result = TDO_ERROR_OS;
+        goto error_setup;
     } else if (length >= sizeof(exe_name)) {
         fprintf(stderr, "Could not get executable name, buffer too small\n");
-        fflush(NULL);
-        abort();
+        result = TDO_ERROR_OS;
+        goto error_setup;
     }
     status->executable_name = tdo_string_init();
     if (!tdo_string_append(&status->executable_name, arena, length, exe_name)) {
@@ -537,7 +543,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     status->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
     if (status->iocp == NULL) {
         fprintf(stderr, "could not create IOCP: %lu\n", GetLastError());
-        result = TDO_ERROR_PIPE;
+        result = TDO_ERROR_OS;
         goto error_setup;
     }
 
@@ -679,9 +685,21 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         };
 
         // set up IOCP
-        CreateIoCompletionPort(h_out, status->iocp, (ULONG_PTR) &status->runs[i], 0);
-        CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR) &status->runs[i], 0);
-        CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR) &status->runs[i], 0);
+        if (CreateIoCompletionPort(h_out, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate out pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
+        if (CreateIoCompletionPort(h_err, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate err pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
+        if (CreateIoCompletionPort(h_status, status->iocp, (ULONG_PTR) &status->runs[i], 0) != status->iocp) {
+            fprintf(stderr, "Could not associate status pipe with completion port, error: %lu\n", GetLastError());
+            result = TDO_ERROR_OS;
+            goto error_named_pipe_setup;
+        }
     }
 
     result = TDO_ERROR_OK;

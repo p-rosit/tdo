@@ -1,5 +1,6 @@
 #ifndef TDO_ARENA_H
 #define TDO_ARENA_H
+#include <stdbool.h>
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
     #include <stddef.h>
