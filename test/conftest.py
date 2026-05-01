@@ -51,7 +51,13 @@ class Macro:
     value: Optional[Any] = None
 
 
-def compile(compiler: str, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+class Optimization(enum.Enum):
+    debug = enum.auto()
+    minor = enum.auto()
+    major = enum.auto()
+
+
+def compile(compiler: str, optimization: Optimization, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
     if os.name == 'nt' and compiler not in ['cl', 'clang']:
         pytest.skip(f'Compiler "{compiler}" not available on windows')
     elif os.name == 'posix' and compiler not in ['gcc', 'clang']:
@@ -63,6 +69,16 @@ def compile(compiler: str, temp_directory: str, files: List[str], output: str, f
         compiler = 'gcc'
         output_flag = f'-o {output}'
         fs.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
+
+        if optimization == Optimization.debug:
+            fs.append('-O0')
+        elif optimization == Optimization.minor:
+            fs.append('-O1')
+        elif optimization == Optimization.major:
+            fs.append('-O2')
+        else:
+            raise NotImplementedError
+
         if dynamic:
             fs.extend(['-shared', '-fPIC'])
         if not executable:
@@ -75,6 +91,16 @@ def compile(compiler: str, temp_directory: str, files: List[str], output: str, f
         compiler = 'cl'
         output_flag = f'/Fe{output}'
         fs.append('/nologo')
+
+        if optimization == Optimization.debug:
+            fs.append('/Od')
+        elif optimization == Optimization.minor:
+            fs.append('/O1')
+        elif optimization == Optimization.major:
+            fs.append('/O2')
+        else:
+            raise NotImplementedError
+
         if dynamic:
             fs.append('/LD')
         if not executable:
@@ -99,6 +125,11 @@ def compiler(request) -> str:
     return request.param
 
 
+@pytest.fixture(scope='session', params=[Optimization.debug, Optimization.minor, Optimization.major])
+def optimization(request) -> Optimization:
+    return request.param
+
+
 @pytest.fixture(scope='session')
 def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     name = 'library'
@@ -110,15 +141,16 @@ def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    compile(compiler, temp_directory, [source_path], output=compiled_path, dynamic=True)
+    compile(compiler, Optimization.debug, temp_directory, [source_path], output=compiled_path, dynamic=True)
     return compiled_path
 
 
 class Runner:
-    compiled_path: Dict[Tuple[str, Tuple[str, ...], Tuple[Macro, ...]], str] = {}
+    compiled_path: Dict[Tuple[str, Optimization, Tuple[str, ...], Tuple[Macro, ...]], str] = {}
 
-    def __init__(self, compiler: str, source: str, temp_directory: str):
+    def __init__(self, compiler: str, optimization: Optimization, source: str, temp_directory: str):
         self.compiler = compiler
+        self.optimization = optimization
         self.source = source
         self.temp_directory = temp_directory
 
@@ -126,21 +158,21 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        key = (self.compiler, tuple(files or []), tuple(macros or []))
+        key = (self.compiler, self.optimization, tuple(files or []), tuple(macros or []))
         if (compiled_path := self.compiled_path.get(key, None)) is not None:
             return compiled_path
 
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.name}_{uuid.uuid4()}'))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{uuid.uuid4()}'))
 
-        compile(self.compiler, self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
+        compile(self.compiler, self.optimization, self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
         self.compiled_path[key] = compiled_path
         return compiled_path
 
 
 @pytest.fixture(scope='session')
-def runner(compiler: str, root_directory: str, temp_directory: str) -> Runner:
+def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
-    return Runner(compiler, source_path, temp_directory)
+    return Runner(compiler, optimization, source_path, temp_directory)
 
 
 @dataclasses.dataclass
@@ -161,7 +193,7 @@ class MockRunner:
         mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
 
         if not os.path.isfile(mock_object):
-            compile(self.runner.compiler, self.temp_directory, [mock_source], mock_object, executable=False)
+            compile(self.runner.compiler, self.runner.optimization, self.temp_directory, [mock_source], mock_object, executable=False)
 
         macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
         if func.override_main:
