@@ -1,4 +1,5 @@
 from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union
+import enum
 import dataclasses
 import contextlib
 import subprocess
@@ -201,9 +202,31 @@ class ResultStop(ResultDone):
     stop: int
 
 
+class Error(enum.Enum):
+    ok = 0
+    unknown = -1
+    arg_first = 1
+    arg_parse = 2
+    memory = 3
+    file = 4
+    input = 5
+    eof = 6
+    pipe = 7
+    newline = 8
+    negative = 9
+    number = 10
+    prefix = 11
+    would_block = 12
+    os = 13
+
+
 @dataclasses.dataclass
 class ErrorCode:
-    code: int
+    code: Union[Error, int]
+
+    def __post_init__(self):
+        if isinstance(self.code, Error):
+            self.code = self.code.value
 
 
 class RunTests:
