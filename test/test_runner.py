@@ -205,6 +205,9 @@ def test_error_load_library_fixture_after(library: str, run_tests: RunTests):
 def test_error_load_test(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::not_a_test')
 
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], ResultError)
     err = result[0].error
     result[0].error = ''
 
@@ -222,6 +225,9 @@ def test_error_load_test(library: str, run_tests: RunTests):
 def test_error_load_fixture_before(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success before::{library}::not_a_fixture')
 
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], ResultError)
     err = result[0].error
     result[0].error = ''
 
@@ -239,6 +245,9 @@ def test_error_load_fixture_before(library: str, run_tests: RunTests):
 def test_error_load_fixture_after(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success after::{library}::not_a_fixture')
 
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], ResultError)
     err = result[0].error
     result[0].error = ''
 
