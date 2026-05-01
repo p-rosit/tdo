@@ -51,7 +51,12 @@ class Macro:
     value: Optional[Any] = None
 
 
-def compile(temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+def compile(compiler: str, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+    if os.name == 'nt' and compiler not in ['cl', 'clang']:
+        pytest.skip(f'Compiler "{compiler}" not available on windows')
+    elif os.name == 'posix' and compiler not in ['gcc', 'clang']:
+        pytest.skip(f'Compiler "{compiler}" not available on posix')
+
     fs = []
     macros = macros or []
     if os.name == 'posix':
@@ -89,8 +94,13 @@ def compile(temp_directory: str, files: List[str], output: str, flags: Optional[
         raise CompileError('Could not compile')
 
 
+@pytest.fixture(scope='session', params=['gcc', 'cl', 'clang'])
+def compiler(request) -> str:
+    return request.param
+
+
 @pytest.fixture(scope='session')
-def library(root_directory: str, temp_directory: str) -> str:
+def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     name = 'library'
     source = f'{name}.c'
     compiled = dynamic_library(name)
@@ -100,14 +110,15 @@ def library(root_directory: str, temp_directory: str) -> str:
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    compile(temp_directory, [source_path], output=compiled_path, dynamic=True)
+    compile(compiler, temp_directory, [source_path], output=compiled_path, dynamic=True)
     return compiled_path
 
 
 class Runner:
-    compiled_path: Dict[Tuple[Tuple[str, ...], Tuple[Macro, ...]], str] = {}
+    compiled_path: Dict[Tuple[str, Tuple[str, ...], Tuple[Macro, ...]], str] = {}
 
-    def __init__(self, source: str, temp_directory: str):
+    def __init__(self, compiler: str, source: str, temp_directory: str):
+        self.compiler = compiler
         self.source = source
         self.temp_directory = temp_directory
 
@@ -115,13 +126,13 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        key = (tuple(files or []), tuple(macros or []))
+        key = (self.compiler, tuple(files or []), tuple(macros or []))
         if (compiled_path := self.compiled_path.get(key, None)) is not None:
             return compiled_path
 
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.name}_{uuid.uuid4()}'))
 
-        compile(self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
+        compile(self.compiler, self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
         self.compiled_path[key] = compiled_path
         return compiled_path
 
@@ -144,7 +155,7 @@ class MockRunner:
         mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
 
         if not os.path.isfile(mock_object):
-            compile(self.temp_directory, [mock_source], mock_object, executable=False)
+            compile(self.runner.compiler, self.temp_directory, [mock_source], mock_object, executable=False)
 
         macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
         if func.override_main:
@@ -164,9 +175,9 @@ def mock_runner(root_directory: str, temp_directory: str, runner: Runner):
 
 
 @pytest.fixture(scope='session')
-def runner(root_directory: str, temp_directory: str) -> Runner:
+def runner(compiler: str, root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
-    return Runner(source_path, temp_directory)
+    return Runner(compiler, source_path, temp_directory)
 
 
 @dataclasses.dataclass
