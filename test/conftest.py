@@ -1,4 +1,4 @@
-from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union
+from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union, TYPE_CHECKING
 import enum
 import dataclasses
 import contextlib
@@ -9,6 +9,16 @@ import pathlib
 import shutil
 import uuid
 import pytest
+
+
+if TYPE_CHECKING:
+    from typing import TypeVar
+    T = TypeVar('T')
+
+    def approx(expected: T, rel=None, abs=None, nan_ok=False) -> T:
+        pass
+else:
+    from pytest import approx
 
 
 def dynamic_library(name: str) -> str:

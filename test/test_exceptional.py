@@ -1,6 +1,6 @@
 import os
 import pytest
-from conftest import Error, Runner, ResultComplete, ResultError, Macro, ErrorCode, compile, RunTests
+from conftest import Error, Runner, ResultComplete, ResultError, Macro, ErrorCode, compile, RunTests, approx
 
 
 def test_malloc_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests: RunTests):
@@ -53,21 +53,21 @@ def test_fork_fails(temp_directory: str, root_directory: str, runner: Runner, li
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not create child process',
             step=None,
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not create child process',
             step=None,
         ),
@@ -99,21 +99,21 @@ def test_pipe_fails(temp_directory: str, root_directory: str, runner: Runner, li
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
@@ -149,7 +149,7 @@ def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, li
             assert r == ResultComplete(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 stdout='',
                 stderr='',
             )
@@ -157,7 +157,7 @@ def test_read_fails(temp_directory: str, root_directory: str, runner: Runner, li
             assert r == ResultError(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 error='could not read output',
                 step=None,
             )
@@ -194,7 +194,7 @@ def test_poll_fails(temp_directory: str, root_directory: str, runner: Runner, li
             assert r == ResultComplete(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 stdout='',
                 stderr='',
             )
@@ -202,7 +202,7 @@ def test_poll_fails(temp_directory: str, root_directory: str, runner: Runner, li
             assert r == ResultError(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 error='could not read output',
                 step=None,
             )
@@ -231,21 +231,21 @@ def test_posix_read_one_byte_at_a_time(temp_directory: str, root_directory: str,
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
@@ -273,21 +273,21 @@ def test_windows_read_one_byte_at_a_time(temp_directory: str, root_directory: st
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
@@ -320,21 +320,21 @@ def test_ConnectNamedPipe_fails(temp_directory: str, root_directory: str, runner
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
@@ -368,21 +368,21 @@ def test_CreateFile_fails(temp_directory: str, root_directory: str, runner: Runn
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not setup log redirection',
             step=None,
         ),
@@ -410,14 +410,14 @@ def test_crash_on_internal_start(temp_directory: str, root_directory: str, runne
             ResultComplete(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 stdout='',
                 stderr='',
             ),
             ResultComplete(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 stdout='',
                 stderr='',
             ),
@@ -427,14 +427,14 @@ def test_crash_on_internal_start(temp_directory: str, root_directory: str, runne
             ResultError(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 error='no data in status pipe',
                 step=None,
             ),
             ResultError(
                 file=library,
                 name='test_success',
-                duration=pytest.approx(0.0, abs=100.0),
+                duration=approx(0.0, abs=100.0),
                 error='no data in status pipe',
                 step=None,
             ),
@@ -496,21 +496,21 @@ def test_AssignProcessToJobObject_fails(temp_directory: str, root_directory: str
         ResultComplete(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             stdout='',
             stderr='',
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not create child process',
             step=None,
         ),
         ResultError(
             file=library,
             name='test_success',
-            duration=pytest.approx(0.0, abs=100.0),
+            duration=approx(0.0, abs=100.0),
             error='could not create child process',
             step=None,
         ),
@@ -662,4 +662,4 @@ def test_GetQueuedCompletionStatus_fails(temp_directory: str, root_directory: st
         test::{library}::test_success
     """, r, args=['--mock-get-queued-max', 2])
 
-    assert result == ErrorCode(code=pytest.approx(0, abs=1e20))
+    assert result == ErrorCode(code=approx(0, abs=1e20))
