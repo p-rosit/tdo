@@ -1,4 +1,5 @@
 from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union, TYPE_CHECKING
+import re
 import enum
 import dataclasses
 import contextlib
@@ -329,6 +330,21 @@ class RunTests:
         return self.function(tests, executable=executable, args=args)
 
 
+def strip_asan_noise(text: str) -> str:
+    """
+    Removes ASan / interception_win warnings from stderr.
+    Example noise: ==2544==interception_win: unhandled instruction...
+    """
+    if not text:
+        return ""
+
+    # Matches lines starting with ==digits== followed by interception_win or asan
+    # and removes the entire line including the trailing newline.
+    pattern = r"==\d+==(?:interception_win|asan|AddressSanitizer):.*?\n"
+
+    return re.sub(pattern, "", text, flags=re.IGNORECASE)
+
+
 @pytest.fixture
 def run_tests(runner: Runner):
     def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
@@ -371,6 +387,9 @@ def run_tests(runner: Runner):
                 result_type = ResultStop
             else:
                 raise ValueError(f'Invalid status: "{status}"')
+
+            if 'stderr' in c:
+                c['stderr'] = strip_asan_noise(c['stderr'])
 
             assert set(c.keys()) == keys
             c = result_type(**{k: c[k] for k in keys if k != 'status'})

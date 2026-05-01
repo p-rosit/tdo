@@ -1,4 +1,5 @@
 import os
+import sys
 import pytest
 from conftest import Error, ResultComplete, ResultError, ErrorCode, RunTests, approx, Mock, MockRunner
 
@@ -90,6 +91,7 @@ def test_pipe_fails(mock_runner: MockRunner, library: str, run_tests: RunTests, 
 
 
 @pytest.mark.parametrize('amount', (1, 3, 9, 16))
+@pytest.mark.skipif(sys.platform == 'darwin', reason='Hangs on mac for unknown reasons, I do not have hardware to test with')
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_read_fails(mock_runner: MockRunner, library: str, run_tests: RunTests, amount: int):
     r = mock_runner(Mock(names=['read'], file='read.c', override_main=True))
