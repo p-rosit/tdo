@@ -1,3 +1,4 @@
+from typing import Any
 from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, approx
 
 
@@ -162,6 +163,68 @@ def test_all(library: str, run_tests: RunTests):
             stderr='Other thing\n',
         ),
     ]
+
+
+def test_all_parallel(library: str, run_tests: RunTests):
+    def sort_func(x: Any):
+        return str(x)
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_aborts
+        test::{library}::test_success_with_stdout
+        test::{library}::test_early_exit
+        test::{library}::test_success_with_other_stdout
+        test::{library}::test_success_with_stderr
+    """, args=['-j4'])
+    assert sorted(result, key=sort_func) == sorted([
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultSignal(
+            file=library,
+            name='test_aborts',
+            duration=approx(0.0, abs=100.0),
+            step=StepTest(file=library, name='test_aborts'),
+            signal=approx(0, abs=1e12),  # the specific signal integer is implementation defined
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_stdout',
+            duration=approx(0.0, abs=100.0),
+            stdout='Printed\n',
+            stderr='',
+        ),
+        ResultExit(
+            file=library,
+            name='test_early_exit',
+            duration=approx(0.0, abs=100.0),
+            step=StepTest(file=library, name='test_early_exit'),
+            exit=4,
+            stdout='',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_other_stdout',
+            duration=approx(0.0, abs=100.0),
+            stdout='other\n',
+            stderr='',
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success_with_stderr',
+            duration=approx(0.0, abs=100.0),
+            stdout='',
+            stderr='Other thing\n',
+        ),
+    ], key=sort_func)
 
 
 def test_error_load_library_test(run_tests: RunTests):
