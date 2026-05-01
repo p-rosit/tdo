@@ -1,4 +1,5 @@
-from typing import Generator, List, Optional, Any, Dict, Tuple
+from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union, TYPE_CHECKING
+import enum
 import dataclasses
 import contextlib
 import subprocess
@@ -8,6 +9,16 @@ import pathlib
 import shutil
 import uuid
 import pytest
+
+
+if TYPE_CHECKING:
+    from typing import TypeVar
+    T = TypeVar('T')
+
+    def approx(expected: T, rel=None, abs=None, nan_ok=False) -> T:
+        pass
+else:
+    from pytest import approx
 
 
 def dynamic_library(name: str) -> str:
@@ -40,25 +51,58 @@ class Macro:
     value: Optional[Any] = None
 
 
-def compile(temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+class Optimization(enum.Enum):
+    debug = enum.auto()
+    minor = enum.auto()
+    major = enum.auto()
+
+
+def compile(compiler: str, optimization: Optimization, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
+    if os.name == 'nt' and compiler not in ['cl', 'clang']:
+        pytest.skip(f'Compiler "{compiler}" not available on windows')
+    elif os.name == 'posix' and compiler not in ['gcc', 'clang']:
+        pytest.skip(f'Compiler "{compiler}" not available on posix')
+
     fs = []
     macros = macros or []
-    if os.name == 'posix':
-        compiler = 'gcc'
+    if compiler in ['gcc', 'clang']:
         output_flag = f'-o {output}'
-        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
+        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-pedantic'])
+        if os.name != 'nt':
+            fs.append('-Werror')
+
+        if optimization == Optimization.debug:
+            fs.append('-O0')
+        elif optimization == Optimization.minor:
+            fs.append('-O1')
+        elif optimization == Optimization.major:
+            fs.append('-O2')
+        else:
+            raise NotImplementedError
+
         if dynamic:
-            fs.extend(['-shared', '-fPIC'])
+            fs.append('-shared')
+            if os.name != 'nt':
+                fs.append('-fPIC')
         if not executable:
             fs.append('-c')
-        if not dynamic and executable:
+        if not dynamic and executable and os.name != 'nt':
             fs.append('-ldl')  # It's probably the main runner...
         for m in macros:
             fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
-    elif os.name == 'nt':
-        compiler = 'cl'
+    elif compiler == 'cl':
         output_flag = f'/Fe{output}'
         fs.append('/nologo')
+
+        if optimization == Optimization.debug:
+            fs.append('/Od')
+        elif optimization == Optimization.minor:
+            fs.append('/O1')
+        elif optimization == Optimization.major:
+            fs.append('/O2')
+        else:
+            raise NotImplementedError
+
         if dynamic:
             fs.append('/LD')
         if not executable:
@@ -66,7 +110,7 @@ def compile(temp_directory: str, files: List[str], output: str, flags: Optional[
         for m in macros:
             fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
     else:
-        raise NotImplementedError(f'Unknown os: {os.name}')
+        raise NotImplementedError(f'Unknown compiler: "{compiler}"')
 
     fs.extend(flags or [])
     command = f'{compiler} {" ".join(files)} {" ".join(fs)} {output_flag}'
@@ -78,8 +122,18 @@ def compile(temp_directory: str, files: List[str], output: str, flags: Optional[
         raise CompileError('Could not compile')
 
 
+@pytest.fixture(scope='session', params=['gcc', 'cl', 'clang'])
+def compiler(request) -> str:
+    return request.param
+
+
+@pytest.fixture(scope='session', params=[Optimization.debug, Optimization.minor, Optimization.major])
+def optimization(request) -> Optimization:
+    return request.param
+
+
 @pytest.fixture(scope='session')
-def library(root_directory: str, temp_directory: str) -> str:
+def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     name = 'library'
     source = f'{name}.c'
     compiled = dynamic_library(name)
@@ -89,14 +143,16 @@ def library(root_directory: str, temp_directory: str) -> str:
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    compile(temp_directory, [source_path], output=compiled_path, dynamic=True)
+    compile(compiler, Optimization.debug, temp_directory, [source_path], output=compiled_path, dynamic=True)
     return compiled_path
 
 
 class Runner:
-    compiled_path: Dict[Tuple[Tuple[str, ...], Tuple[Macro, ...]], str] = {}
+    compiled_path: Dict[Tuple[str, Optimization, Tuple[str, ...], Tuple[Macro, ...]], str] = {}
 
-    def __init__(self, source: str, temp_directory: str):
+    def __init__(self, compiler: str, optimization: Optimization, source: str, temp_directory: str):
+        self.compiler = compiler
+        self.optimization = optimization
         self.source = source
         self.temp_directory = temp_directory
 
@@ -104,21 +160,58 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        key = (tuple(files or []), tuple(macros or []))
+        key = (self.compiler, self.optimization, tuple(files or []), tuple(macros or []))
         if (compiled_path := self.compiled_path.get(key, None)) is not None:
             return compiled_path
 
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.name}_{uuid.uuid4()}'))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{uuid.uuid4()}'))
 
-        compile(self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
+        compile(self.compiler, self.optimization, self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
         self.compiled_path[key] = compiled_path
         return compiled_path
 
 
 @pytest.fixture(scope='session')
-def runner(root_directory: str, temp_directory: str) -> Runner:
+def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
-    return Runner(source_path, temp_directory)
+    return Runner(compiler, optimization, source_path, temp_directory)
+
+
+@dataclasses.dataclass
+class Mock:
+    names: List[str]
+    file: str
+    override_main: bool = False
+
+
+class MockRunner:
+    def __init__(self, runner: Runner, root_directory: str, temp_directory: str):
+        self.runner = runner
+        self.root_directory = root_directory
+        self.temp_directory = temp_directory
+
+    def __call__(self, func: Mock) -> str:
+        mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
+        mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
+
+        if not os.path.isfile(mock_object):
+            compile(self.runner.compiler, self.runner.optimization, self.temp_directory, [mock_source], mock_object, executable=False)
+
+        macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
+        if func.override_main:
+            macros.append(Macro(name='main', value='tdo_runner_main'))
+
+        r = self.runner.compile(
+            files=[mock_object],
+            macros=macros,
+        )
+
+        return r
+
+
+@pytest.fixture
+def mock_runner(root_directory: str, temp_directory: str, runner: Runner):
+    return MockRunner(runner, root_directory, temp_directory)
 
 
 @dataclasses.dataclass
@@ -201,14 +294,44 @@ class ResultStop(ResultDone):
     stop: int
 
 
+class Error(enum.Enum):
+    ok = 0
+    unknown = -1
+    arg_first = 1
+    arg_parse = 2
+    memory = 3
+    file = 4
+    input = 5
+    eof = 6
+    pipe = 7
+    newline = 8
+    negative = 9
+    number = 10
+    prefix = 11
+    would_block = 12
+    os = 13
+
+
 @dataclasses.dataclass
 class ErrorCode:
-    code: int
+    code: Union[Error, int]
+
+    def __post_init__(self):
+        if isinstance(self.code, Error):
+            self.code = self.code.value
+
+
+class RunTests:
+    def __init__(self, function: Callable):
+        self.function = function
+
+    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
+        return self.function(tests, executable=executable, args=args)
 
 
 @pytest.fixture
 def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None, args: Optional[List[str]] = None):
+    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
         p = subprocess.Popen(
             [executable or runner.compile(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
@@ -255,7 +378,7 @@ def run_tests(runner: Runner):
             result.append(c)
 
         return result, err
-    return run
+    return RunTests(run)
 
 
 @pytest.fixture(scope='session')
