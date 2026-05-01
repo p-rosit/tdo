@@ -137,6 +137,12 @@ class Runner:
         return compiled_path
 
 
+@pytest.fixture(scope='session')
+def runner(compiler: str, root_directory: str, temp_directory: str) -> Runner:
+    source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
+    return Runner(compiler, source_path, temp_directory)
+
+
 @dataclasses.dataclass
 class Mock:
     names: List[str]
@@ -172,12 +178,6 @@ class MockRunner:
 @pytest.fixture
 def mock_runner(root_directory: str, temp_directory: str, runner: Runner):
     return MockRunner(runner, root_directory, temp_directory)
-
-
-@pytest.fixture(scope='session')
-def runner(compiler: str, root_directory: str, temp_directory: str) -> Runner:
-    source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
-    return Runner(compiler, source_path, temp_directory)
 
 
 @dataclasses.dataclass
