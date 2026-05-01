@@ -126,6 +126,43 @@ class Runner:
         return compiled_path
 
 
+@dataclasses.dataclass
+class Mock:
+    names: List[str]
+    file: str
+    override_main: bool = False
+
+
+class MockRunner:
+    def __init__(self, runner: Runner, root_directory: str, temp_directory: str):
+        self.runner = runner
+        self.root_directory = root_directory
+        self.temp_directory = temp_directory
+
+    def __call__(self, func: Mock) -> str:
+        mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
+        mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
+
+        if not os.path.isfile(mock_object):
+            compile(self.temp_directory, [mock_source], mock_object, executable=False)
+
+        macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
+        if func.override_main:
+            macros.append(Macro(name='main', value='tdo_runner_main'))
+
+        r = self.runner.compile(
+            files=[mock_object],
+            macros=macros,
+        )
+
+        return r
+
+
+@pytest.fixture
+def mock_runner(root_directory: str, temp_directory: str, runner: Runner):
+    return MockRunner(runner, root_directory, temp_directory)
+
+
 @pytest.fixture(scope='session')
 def runner(root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
