@@ -1,4 +1,4 @@
-from typing import Generator, List, Optional, Any, Dict, Tuple
+from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union
 import dataclasses
 import contextlib
 import subprocess
@@ -206,9 +206,17 @@ class ErrorCode:
     code: int
 
 
+class RunTests:
+    def __init__(self, function: Callable):
+        self.function = function
+
+    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
+        return self.function(tests, executable=executable, args=args)
+
+
 @pytest.fixture
 def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None, args: Optional[List[str]] = None):
+    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
         p = subprocess.Popen(
             [executable or runner.compile(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
@@ -255,7 +263,7 @@ def run_tests(runner: Runner):
             result.append(c)
 
         return result, err
-    return run
+    return RunTests(run)
 
 
 @pytest.fixture(scope='session')

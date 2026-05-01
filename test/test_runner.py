@@ -1,9 +1,8 @@
-from typing import Callable, Tuple
 import pytest
-from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, StepFixtureAfter, StepFixtureBefore, StepTest
+from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests
 
 
-def test_success(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_success(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success')
     assert result == [ResultComplete(
         file=library,
@@ -14,7 +13,7 @@ def test_success(library: str, run_tests: Callable[[str], Tuple[list, str]]):
     )]
 
 
-def test_success_with_stdout(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_success_with_stdout(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success_with_stdout')
     assert result == [ResultComplete(
         file=library,
@@ -25,7 +24,7 @@ def test_success_with_stdout(library: str, run_tests: Callable[[str], Tuple[list
     )]
 
 
-def test_success_with_stderr(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_success_with_stderr(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success_with_stderr')
     assert result == [ResultComplete(
         file=library,
@@ -36,7 +35,7 @@ def test_success_with_stderr(library: str, run_tests: Callable[[str], Tuple[list
     )]
 
 
-def test_early_exit(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_early_exit(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_early_exit')
     assert result == [ResultExit(
         file=library,
@@ -49,7 +48,7 @@ def test_early_exit(library: str, run_tests: Callable[[str], Tuple[list, str]]):
     )]
 
 
-def test_aborts(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_aborts(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_aborts')
     assert result == [ResultSignal(
         file=library,
@@ -62,7 +61,7 @@ def test_aborts(library: str, run_tests: Callable[[str], Tuple[list, str]]):
     )]
 
 
-def test_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_fixture_before(library: str, run_tests: RunTests):
     result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'before::{library}::test_success_with_stdout'
@@ -76,7 +75,7 @@ def test_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str
     )]
 
 
-def test_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_fixture_after(library: str, run_tests: RunTests):
     result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'after::{library}::test_success_with_stdout'
@@ -90,7 +89,7 @@ def test_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]
     )]
 
 
-def test_fixture_multiple(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_fixture_multiple(library: str, run_tests: RunTests):
     result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'before::{library}::test_success_with_stdout '
@@ -107,7 +106,7 @@ def test_fixture_multiple(library: str, run_tests: Callable[[str], Tuple[list, s
     )]
 
 
-def test_all(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_all(library: str, run_tests: RunTests):
     result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_aborts
@@ -166,7 +165,7 @@ def test_all(library: str, run_tests: Callable[[str], Tuple[list, str]]):
     ]
 
 
-def test_error_load_library_test(run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_library_test(run_tests: RunTests):
     result, _ = run_tests('test::library_that_doesn\'t_exist.so::test_name')
     assert result == [ResultError(
         file='library_that_doesn\'t_exist.so',
@@ -177,7 +176,7 @@ def test_error_load_library_test(run_tests: Callable[[str], Tuple[list, str]]):
     )]
 
 
-def test_error_load_library_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_library_fixture_before(library: str, run_tests: RunTests):
     result, _ = run_tests(f"""
         test::{library}::test_success before::missing_library.so::fixture_name
     """)
@@ -190,7 +189,7 @@ def test_error_load_library_fixture_before(library: str, run_tests: Callable[[st
     )]
 
 
-def test_error_load_library_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_library_fixture_after(library: str, run_tests: RunTests):
     result, _ = run_tests(f"""
         test::{library}::test_success after::missing_library.so::fixture_name
     """)
@@ -203,7 +202,7 @@ def test_error_load_library_fixture_after(library: str, run_tests: Callable[[str
     )]
 
 
-def test_error_load_test(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_test(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::not_a_test')
 
     err = result[0].error
@@ -220,7 +219,7 @@ def test_error_load_test(library: str, run_tests: Callable[[str], Tuple[list, st
     assert 'Could not load test: ' in err
 
 
-def test_error_load_fixture_before(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_fixture_before(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success before::{library}::not_a_fixture')
 
     err = result[0].error
@@ -237,7 +236,7 @@ def test_error_load_fixture_before(library: str, run_tests: Callable[[str], Tupl
     assert 'Could not load fixture: ' in err
 
 
-def test_error_load_fixture_after(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_error_load_fixture_after(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success after::{library}::not_a_fixture')
 
     err = result[0].error
@@ -254,7 +253,7 @@ def test_error_load_fixture_after(library: str, run_tests: Callable[[str], Tuple
     assert 'Could not load fixture: ' in err
 
 
-def test_parse_missing_library(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_parse_missing_library(library: str, run_tests: RunTests):
     result, err = run_tests(f"""
         test::::test_success
         test::{library}::test_success
@@ -263,7 +262,7 @@ def test_parse_missing_library(library: str, run_tests: Callable[[str], Tuple[li
     assert result == [ResultComplete(file=library, name='test_success', duration=pytest.approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
-def test_parse_missing_name(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_parse_missing_name(library: str, run_tests: RunTests):
     result, err = run_tests(f"""
         test::library.so::
         test::{library}::test_success
@@ -272,7 +271,7 @@ def test_parse_missing_name(library: str, run_tests: Callable[[str], Tuple[list,
     assert result == [ResultComplete(file=library, name='test_success', duration=pytest.approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
-def test_parse_invalid_prefix(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_parse_invalid_prefix(library: str, run_tests: RunTests):
     result, err = run_tests(f"""
         thing::library.so::test_name
         test::{library}::test_success
@@ -281,7 +280,7 @@ def test_parse_invalid_prefix(library: str, run_tests: Callable[[str], Tuple[lis
     assert result == [ResultComplete(file=library, name='test_success', duration=pytest.approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
-def test_parse_first_not_test(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_parse_first_not_test(library: str, run_tests: RunTests):
     result, err = run_tests(f"""
         after::{library}::test_success test::{library}::test_success
         test::{library}::test_success
@@ -290,7 +289,7 @@ def test_parse_first_not_test(library: str, run_tests: Callable[[str], Tuple[lis
     assert result == [ResultComplete(file=library, name='test_success', duration=pytest.approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
-def test_parse_invalid_fixture(library: str, run_tests: Callable[[str], Tuple[list, str]]):
+def test_parse_invalid_fixture(library: str, run_tests: RunTests):
     result, err = run_tests(f"""
         test::{library}::test_success behind::{library}::test_success
         test::{library}::test_success
