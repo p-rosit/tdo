@@ -65,10 +65,11 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
 
     fs = []
     macros = macros or []
-    if os.name == 'posix':
-        compiler = 'gcc'
+    if compiler in ['gcc', 'clang']:
         output_flag = f'-o {output}'
-        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-Werror', '-pedantic'])
+        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-pedantic'])
+        if os.name != 'nt':
+            fs.append('-Werror')
 
         if optimization == Optimization.debug:
             fs.append('-O0')
@@ -80,15 +81,16 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
             raise NotImplementedError
 
         if dynamic:
-            fs.extend(['-shared', '-fPIC'])
+            fs.append('-shared')
+            if os.name != 'nt':
+                fs.append('-fPIC')
         if not executable:
             fs.append('-c')
-        if not dynamic and executable:
+        if not dynamic and executable and os.name != 'nt':
             fs.append('-ldl')  # It's probably the main runner...
         for m in macros:
             fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
-    elif os.name == 'nt':
-        compiler = 'cl'
+    elif compiler == 'cl':
         output_flag = f'/Fe{output}'
         fs.append('/nologo')
 
@@ -108,7 +110,7 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
         for m in macros:
             fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
     else:
-        raise NotImplementedError(f'Unknown os: {os.name}')
+        raise NotImplementedError(f'Unknown compiler: "{compiler}"')
 
     fs.extend(flags or [])
     command = f'{compiler} {" ".join(files)} {" ".join(fs)} {output_flag}'
