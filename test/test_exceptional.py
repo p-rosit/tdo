@@ -1,6 +1,6 @@
 import os
 import pytest
-from conftest import Runner, ResultComplete, ResultError, Macro, ErrorCode, compile, RunTests
+from conftest import Error, Runner, ResultComplete, ResultError, Macro, ErrorCode, compile, RunTests
 
 
 def test_malloc_fails(temp_directory: str, root_directory: str, runner: Runner, library: str, run_tests: RunTests):
@@ -26,7 +26,7 @@ def test_malloc_fails(temp_directory: str, root_directory: str, runner: Runner, 
         if isinstance(result_or_code, list):
             break
         else:
-            assert result_or_code.code == 3
+            assert result_or_code == ErrorCode(code=Error.memory)
         amount += 1
 
 
@@ -468,7 +468,7 @@ def test_CreateNamedPipe_fails(temp_directory: str, root_directory: str, runner:
         test::{library}::test_success
     """, r, args=['-j8', '--mock-create-pipe-max', amount])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
@@ -538,7 +538,7 @@ def test_CreateIoCompletionPort_setup_fails(temp_directory: str, root_directory:
         test::{library}::test_success
     """, r, args=['--mock-create-port-max', 0])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.parametrize('amount', (4, 5, 6))
@@ -563,7 +563,7 @@ def test_CreateIoCompletionPort_fails(temp_directory: str, root_directory: str, 
         test::{library}::test_success
     """, r, args=['-j8', '--mock-create-port-max', amount])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
@@ -588,7 +588,7 @@ def test_CreateJobObject_fails(temp_directory: str, root_directory: str, runner:
         test::{library}::test_success
     """, r, args=['--mock-create-job-max', 0])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.parametrize('amount', (0, 1))
@@ -613,7 +613,7 @@ def test_SetInformationJobObject_fails(temp_directory: str, root_directory: str,
         test::{library}::test_success
     """, r, args=['--mock-set-job-max', amount])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
@@ -638,7 +638,7 @@ def test_GetModuleFileName_fails(temp_directory: str, root_directory: str, runne
         test::{library}::test_success
     """, r, args=['--mock-get-module-name-max', 0])
 
-    assert result == ErrorCode(code=13)
+    assert result == ErrorCode(code=Error.os)
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Does not run on non-windows system')
