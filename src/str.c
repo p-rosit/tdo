@@ -72,3 +72,16 @@ void tdo_log_reset(struct TdoLog *log, TdoFileDescriptor fd) {
     log->fd = fd;
     log->data.length = 0;
 }
+
+enum TdoError tdo_log_append(struct TdoLog *log, struct TdoArena *arena, size_t size, char const *data) {
+    size_t capacity_left = log->capacity - log->data.length;
+    if (capacity_left < size) {
+        bool result = tdo_string_append(&log->data, arena, size, data);
+        if (!result) return TDO_ERROR_MEMORY;
+        log->capacity = log->data.length;
+    } else {
+        memcpy(log->data.bytes + log->data.length, data, size);
+        log->data.length += size;
+    }
+    return TDO_ERROR_OK;
+}

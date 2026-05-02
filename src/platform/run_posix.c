@@ -47,8 +47,8 @@ enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
         errno = 0;
         ssize_t bytes_read = read(log->fd, buffer, sizeof(buffer));
         if (bytes_read > 0) {
-            bool result = tdo_string_append(&log->data, arena, (size_t) bytes_read, buffer);
-            if (!result) return TDO_ERROR_MEMORY;
+            enum TdoError err = tdo_log_append(log, arena, bytes_read, buffer);
+            if (err != TDO_ERROR_OK) return err;
         } else if (bytes_read == 0) {
             break;
         } else if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {

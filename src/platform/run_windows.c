@@ -382,7 +382,8 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 break;
             case TDO_PIPE_CONNECTED:
                 if (bytes_transferred > 0) {
-                    if (!tdo_string_append(&log->data, arena, bytes_transferred, ov->buffer)) {
+                    enum TdoError err = tdo_log_append(log, arena, bytes_transferred, ov->buffer);
+                    if (err != TDO_ERROR_OK) {
                         run->active = false;
                         status->running -= 1;
 

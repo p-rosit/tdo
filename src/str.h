@@ -20,5 +20,6 @@ struct TdoLog {
 
 struct TdoLog tdo_log_init(TdoFileDescriptor fd);
 void tdo_log_reset(struct TdoLog *log, TdoFileDescriptor fd);
+enum TdoError tdo_log_append(struct TdoLog *log, struct TdoArena *arena, size_t size, char const *data);
 
 #endif
