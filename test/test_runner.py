@@ -247,6 +247,11 @@ def test_all_parallel(library: str, run_tests: RunTests):
     ], key=sort_func)
 
 
+def test_run_empty(run_tests: RunTests):
+    result, _ = run_tests('')
+    assert result == []
+
+
 def test_error_load_library_test(run_tests: RunTests):
     result, _ = run_tests('test::library_that_doesn\'t_exist.so::test_name')
     assert result == [ResultError(
