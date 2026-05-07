@@ -88,7 +88,7 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
         if not executable:
             fs.append('-c')
         if not dynamic and executable and os.name != 'nt':
-            fs.append('-ldl')  # It's probably the main runner...
+            fs.append('-ldl')  # It's probably the main executable...
         for m in macros:
             fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
     elif compiler == 'cl':
@@ -174,7 +174,7 @@ class Runner:
 
 @pytest.fixture(scope='session')
 def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
-    source_path = os.path.join(root_directory, '..', 'src', 'runner.c')
+    source_path = os.path.join(root_directory, '..', 'src', 'main.c')
     return Runner(compiler, optimization, source_path, temp_directory)
 
 
