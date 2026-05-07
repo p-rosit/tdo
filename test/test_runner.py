@@ -13,6 +13,26 @@ def test_success(library: str, run_tests: RunTests):
     )]
 
 
+def test_success_with_comment(library: str, run_tests: RunTests):
+    result, err = run_tests(f"""
+        # a comment
+        test::{library}::test_success
+        # another comment
+    """)
+    assert result == [ResultComplete(
+        file=library,
+        name='test_success',
+        duration=approx(0.0, abs=100.0),
+        stdout='',
+        stderr='',
+    )]
+
+    # No error message complaining about tag
+    assert 'test::' not in err
+    assert 'after::' not in err
+    assert 'before::' not in err
+
+
 def test_success_with_stdout(library: str, run_tests: RunTests):
     result, _ = run_tests(f'test::{library}::test_success_with_stdout')
     assert result == [ResultComplete(

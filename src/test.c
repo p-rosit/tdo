@@ -173,7 +173,10 @@ enum TdoError tdo_test_parse_test(struct TdoString *line, char const *file_name,
     }
     if (line->length == 0) return TDO_ERROR_EOF;
 
-    if (strncmp(line->bytes, "test::", 6) != 0) {
+    if (line->bytes[0] == '#') {
+        // comment
+        return TDO_ERROR_EOF;
+    } else if (strncmp(line->bytes, "test::", 6) != 0) {
         size_t prefix = line->length > 6 ? 6 : line->length;
         fprintf(stderr, "%s:%zu Expected test symbol to start with 'test::', got '%.*s'\n", file_name, line_number, (int) prefix, line->bytes);
         return TDO_ERROR_PREFIX;
