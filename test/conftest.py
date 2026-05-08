@@ -318,6 +318,11 @@ class ResultStop(ResultDone):
     stop: int
 
 
+@dataclasses.dataclass
+class ResultTimeout(ResultDone):
+    step: Step
+
+
 class Error(enum.Enum):
     ok = 0
     unknown = -1
@@ -408,6 +413,9 @@ def run_tests(runner: Runner):
             elif status == 'stop':
                 keys = {'file', 'name', 'duration', 'status', 'stop', 'stdout', 'stderr', 'step'}
                 result_type = ResultStop
+            elif status == 'timeout':
+                keys = {'file', 'name', 'duration', 'status', 'stdout', 'stderr', 'step'}
+                result_type = ResultTimeout
             else:
                 raise ValueError(f'Invalid status: "{status}"')
 

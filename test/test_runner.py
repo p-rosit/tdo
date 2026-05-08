@@ -1,5 +1,5 @@
 from typing import Any
-from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, approx
+from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, ResultTimeout, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, approx
 
 
 def test_success(library: str, run_tests: RunTests):
@@ -66,6 +66,29 @@ def test_early_exit(library: str, run_tests: RunTests):
         stdout='',
         stderr='',
     )]
+
+
+def test_timeout(library: str, run_tests: RunTests):
+    result, _ = run_tests(f'test::{library}::test_print_forever', args=['--timeout', 0.01])
+
+    assert isinstance(result, list)
+    assert len(result) == 1
+
+    r = result[0]
+    assert isinstance(r, ResultTimeout)
+
+    stdout = r.stdout
+    r.stdout = ''
+
+    assert r == ResultTimeout(
+        file=library,
+        name='test_print_forever',
+        duration=approx(0.0, abs=100.0),
+        step=StepTest(file=library, name='test_print_forever'),
+        stdout='',
+        stderr='',
+    )
+    assert len(stdout.split('I am printing forever!\n')) > 100
 
 
 def test_aborts(library: str, run_tests: RunTests):

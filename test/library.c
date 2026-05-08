@@ -29,3 +29,9 @@ EXPORT void test_early_exit(void) {
 EXPORT void test_aborts(void) {
     abort();
 }
+
+EXPORT void test_print_forever(void) {
+    while (1) {
+        fprintf(stdout, "I am printing forever!\n");
+    }
+}
