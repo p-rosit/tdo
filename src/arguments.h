@@ -8,6 +8,7 @@
 
 struct TdoArguments {
     size_t processes;
+    float time_limit;
     char const *single_test;
     char const *test_file;
     char const *output;
