@@ -44,7 +44,90 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
     fprintf(file, "\"");
 }
 
-void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration) {
+void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration, bool timed_out) {
+    fprintf(file, "\n");
+    fprintf(file, "\t{\n");
+
+    fprintf(file, "\t\t\"file\": \"");
+    tdo_json_escaped(file, run->test->symbol.file->name);
+    fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"name\": \"");
+    tdo_json_escaped(file, run->test->symbol.name);
+    fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
+
+    fprintf(file, "\t\t\"status\": \"");
+    if (timed_out) {
+        fprintf(file, "timeout");
+    } else if (tdo_process_status_is_exit(status)) {
+        if (step[0] == 'f') {
+            fprintf(file, "complete");
+        } else {
+            fprintf(file, "exit");
+        }
+    } else if (tdo_process_status_is_signal(status)) {
+        fprintf(file, "signal");
+    } else if (tdo_process_status_is_stop(status)) {
+        fprintf(file, "stop");
+    }
+    fprintf(file, "\"");
+
+    if (!timed_out) {
+        if (tdo_process_status_is_exit(status) && step[0] != 'f') {
+            fprintf(file, ",\n\t\t\"exit\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_exit(status));
+        } else if (tdo_process_status_is_signal(status)) {
+            fprintf(file, ",\n\t\t\"signal\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_signal(status));
+        } else if (tdo_process_status_is_stop(status)) {
+            fprintf(file, ",\n\t\t\"stop\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_stop(status));
+        }
+    }
+
+    if (timed_out || step[0] != 'f') {
+        fprintf(file, ",\n\t\t\"step\": \"");
+        tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
+        fprintf(file, "\"");
+    }
+
+    tdo_log_dump(run->out, file, "stdout");
+    tdo_log_dump(run->err, file, "stderr");
+
+    fprintf(file, "\n\t}");
+}
+
+void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
+    fprintf(file, "\n");
+    fprintf(file, "\t{\n");
+
+    fprintf(file, "\t\t\"file\": \"");
+    tdo_json_escaped(file, test.symbol.file->name);
+    fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"name\": \"");
+    tdo_json_escaped(file, test.symbol.name);
+    fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
+
+    fprintf(file, "\t\t\"status\": \"error\",\n");
+    fprintf(file, "\t\t\"error\": \"");
+    tdo_json_escaped(file, (struct TdoString) { .length=strlen(error), .bytes=(char*)error });
+    fprintf(file, "\",\n");
+
+    fprintf(file, "\t\t\"step\": ");
+    if (step != NULL) {
+        fprintf(file, "\"");
+        tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
+        fprintf(file, "\"\n");
+    } else {
+        fprintf(file, "null\n");
+    }
+
+    fprintf(file, "\t}");
+}
+
+void tdo_run_report_timeout(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration) {
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -90,37 +173,6 @@ void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoPr
     tdo_log_dump(run->err, file, "stderr");
 
     fprintf(file, "\n\t}");
-}
-
-void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
-    fprintf(file, "\n");
-    fprintf(file, "\t{\n");
-
-    fprintf(file, "\t\t\"file\": \"");
-    tdo_json_escaped(file, test.symbol.file->name);
-    fprintf(file, "\",\n");
-
-    fprintf(file, "\t\t\"name\": \"");
-    tdo_json_escaped(file, test.symbol.name);
-    fprintf(file, "\",\n");
-
-    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
-
-    fprintf(file, "\t\t\"status\": \"error\",\n");
-    fprintf(file, "\t\t\"error\": \"");
-    tdo_json_escaped(file, (struct TdoString) { .length=strlen(error), .bytes=(char*)error });
-    fprintf(file, "\",\n");
-
-    fprintf(file, "\t\t\"step\": ");
-    if (step != NULL) {
-        fprintf(file, "\"");
-        tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
-        fprintf(file, "\"\n");
-    } else {
-        fprintf(file, "null\n");
-    }
-
-    fprintf(file, "\t}");
 }
 
 enum TdoError tdo_string_previous_line(struct TdoString *line, struct TdoString string, size_t index) {
@@ -195,7 +247,7 @@ enum TdoError tdo_run_report_assemble_step(struct TdoString *step, struct TdoAre
     return TDO_ERROR_OK;
 }
 
-void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration) {
+void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration, bool timed_out) {
     struct TdoArenaState state = tdo_arena_state_get(arena);
 
     struct TdoString log_status = run->status.data;
@@ -302,7 +354,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
             goto done;
         }
 
-        tdo_run_report_exit(run, file, step.bytes, status, duration);
+        tdo_run_report_exit(run, file, step.bytes, status, duration, timed_out);
     } else if (strncmp(last_line.bytes, "test", 4) == 0) {
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, run->test->symbol);
@@ -312,10 +364,10 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         }
 
         // unexpected exit while running test
-        tdo_run_report_exit(run, file, step.bytes, status, duration);
+        tdo_run_report_exit(run, file, step.bytes, status, duration, timed_out);
     } else if (strncmp(last_line.bytes, "finished", 8) == 0) {
         // test finished normally
-        tdo_run_report_exit(run, file, last_line.bytes, status, duration);
+        tdo_run_report_exit(run, file, last_line.bytes, status, duration, timed_out);
     } else {
         // unknown status
         tdo_run_report_error(*run->test, file, NULL, "unknown error", duration);
