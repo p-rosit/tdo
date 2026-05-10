@@ -69,26 +69,15 @@ def test_early_exit(library: str, run_tests: RunTests):
 
 
 def test_timeout(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_print_forever', args=['--timeout', 0.01])
-
-    assert isinstance(result, list)
-    assert len(result) == 1
-
-    r = result[0]
-    assert isinstance(r, ResultTimeout)
-
-    stdout = r.stdout
-    r.stdout = ''
-
-    assert r == ResultTimeout(
+    result, _ = run_tests(f'test::{library}::test_timeout', args=['--timeout', 0.01])
+    assert result == [ResultTimeout(
         file=library,
-        name='test_print_forever',
+        name='test_timeout',
         duration=approx(0.0, abs=100.0),
-        step=StepTest(file=library, name='test_print_forever'),
-        stdout='',
-        stderr='',
-    )
-    assert len(stdout.split('I am printing forever!\n')) > 100
+        step=StepTest(file=library, name='test_timeout'),
+        stdout='Some output\n',
+        stderr='Some error\n',
+    )]
 
 
 def test_aborts(library: str, run_tests: RunTests):

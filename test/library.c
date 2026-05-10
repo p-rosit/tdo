@@ -35,3 +35,14 @@ EXPORT void test_print_forever(void) {
         fprintf(stdout, "I am printing forever!\n");
     }
 }
+
+EXPORT void test_timeout(void) {
+    fprintf(stdout, "Some output\n"); fflush(stdout);
+    fprintf(stderr, "Some error\n"); fflush(stderr);
+
+    volatile unsigned int x = 0;
+    while (1) {
+        x++;
+    }
+}
+
