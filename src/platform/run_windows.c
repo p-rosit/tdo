@@ -28,6 +28,7 @@ struct TdoRun {
     struct TdoString out_name;
     struct TdoString err_name;
     struct TdoString status_name;
+    bool timed_out;
     bool active;
     struct TdoOverlap out_ov;
     struct TdoOverlap err_ov;
@@ -255,6 +256,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     ResumeThread(pi.hThread);
     CloseHandle(pi.hThread);
 
+    run->timed_out = false;
     run->active = true;
     run->start_time = start_time;
     run->pid = pi.dwProcessId;
@@ -293,7 +295,7 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
     double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
 
     if (status->finished > 0) fprintf(output, ",");
-    tdo_run_report_status(run, arena, output, run->exit_code, duration);
+    tdo_run_report_status(run, arena, output, run->exit_code, duration, run->timed_out);
 
     run->active = false;
     status->running -= 1;
@@ -301,12 +303,20 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
 }
 
 void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output, DWORD pid, DWORD msg) {
-    if (msg != JOB_OBJECT_MSG_EXIT_PROCESS) return;
+    if (msg != JOB_OBJECT_MSG_END_OF_PROCESS_TIME && msg != JOB_OBJECT_MSG_EXIT_PROCESS) return;
 
     if (run == NULL) {
         fprintf(stderr, "Process with unknown PID exited\n");
         fflush(NULL);
         abort();
+    }
+
+    if (msg == JOB_OBJECT_MSG_END_OF_PROCESS_TIME) {
+        run->timed_out = true;
+        CloseHandle(run->process_handle);
+        run->process_handle = NULL;
+        run->exit_code = 0;
+        return;
     }
 
     DWORD return_status;
@@ -556,7 +566,8 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     }
 
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
-    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_PROCESS_TIME;
+    jeli.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart = (LONGLONG)(args.time_limit * 1e7);
 
     if (!SetInformationJobObject(status->job, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
         result = TDO_ERROR_OS;
