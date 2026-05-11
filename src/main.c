@@ -5,6 +5,7 @@
 #include "platform.c"
 #include "test.c"
 #include "run.c"
+#include <errno.h>
 #include <stdio.h>
 
 int main(int argc, char **argv) {
