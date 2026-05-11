@@ -14,6 +14,7 @@ import pytest
 
 def pytest_addoption(parser):
     parser.addoption("--compiler", action="store")
+    parser.addoption("--optimization", action="store", default="debug")
 
 
 def pytest_generate_tests(metafunc):
@@ -23,6 +24,12 @@ def pytest_generate_tests(metafunc):
     metafunc.parametrize(
         "compiler",
         metafunc.config.getoption("--compiler").split(","),
+        scope='session',
+        indirect=True,
+    )
+    metafunc.parametrize(
+        "optimization",
+        [Optimization[level] for level in metafunc.config.getoption("--optimization").split(",")],
         scope='session',
         indirect=True,
     )
@@ -144,7 +151,7 @@ def compiler(request) -> str:
     return request.param
 
 
-@pytest.fixture(scope='session', params=[Optimization.debug, Optimization.minor, Optimization.major])
+@pytest.fixture(scope='session')
 def optimization(request) -> Optimization:
     return request.param
 

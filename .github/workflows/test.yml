@@ -41,4 +41,4 @@ jobs:
         shell: bash
 
       - name: Run Tests
-        run: pytest . -vvv --color=yes --durations=99 --compiler ${{ matrix.compilers }}
+        run: pytest . -vvv --color=yes --durations=99 --compiler ${{ matrix.compilers }} --optimization debug,minor,major
