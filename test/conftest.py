@@ -12,6 +12,22 @@ import uuid
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption("--compiler", action="store")
+
+
+def pytest_generate_tests(metafunc):
+    if metafunc.config.getoption("--compiler") is None:
+        raise ValueError('Missing compiler, specify with `--compiler gcc,cl,clang,tcc`')
+
+    metafunc.parametrize(
+        "compiler",
+        metafunc.config.getoption("--compiler").split(","),
+        scope='session',
+        indirect=True,
+    )
+
+
 if TYPE_CHECKING:
     from typing import TypeVar
     T = TypeVar('T')
@@ -123,7 +139,7 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
         raise CompileError('Could not compile')
 
 
-@pytest.fixture(scope='session', params=['gcc', 'cl', 'clang'])
+@pytest.fixture(scope='session')
 def compiler(request) -> str:
     return request.param
 

@@ -12,7 +12,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            compilers: "gcc,clang"
+          - os: windows-latest
+            compilers: "cl,clang"
+          - os: macos-latest
+            compilers: "gcc,clang"
 
     steps:
       - name: Checkout code
@@ -35,4 +41,4 @@ jobs:
         shell: bash
 
       - name: Run Tests
-        run: pytest . -vvv --color=yes --durations=99
+        run: pytest . -vvv --color=yes --durations=99 --compiler ${{ matrix.compilers }}
