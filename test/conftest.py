@@ -12,6 +12,29 @@ import uuid
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption("--compiler", action="store")
+    parser.addoption("--optimization", action="store", default="debug")
+
+
+def pytest_generate_tests(metafunc):
+    if metafunc.config.getoption("--compiler") is None:
+        raise ValueError('Missing compiler, specify with `--compiler gcc,cl,clang,tcc`')
+
+    metafunc.parametrize(
+        "compiler",
+        metafunc.config.getoption("--compiler").split(","),
+        scope='session',
+        indirect=True,
+    )
+    metafunc.parametrize(
+        "optimization",
+        [Optimization[level] for level in metafunc.config.getoption("--optimization").split(",")],
+        scope='session',
+        indirect=True,
+    )
+
+
 if TYPE_CHECKING:
     from typing import TypeVar
     T = TypeVar('T')
@@ -123,12 +146,12 @@ def compile(compiler: str, optimization: Optimization, temp_directory: str, file
         raise CompileError('Could not compile')
 
 
-@pytest.fixture(scope='session', params=['gcc', 'cl', 'clang'])
+@pytest.fixture(scope='session')
 def compiler(request) -> str:
     return request.param
 
 
-@pytest.fixture(scope='session', params=[Optimization.debug, Optimization.minor, Optimization.major])
+@pytest.fixture(scope='session')
 def optimization(request) -> Optimization:
     return request.param
 
