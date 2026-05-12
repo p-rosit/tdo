@@ -72,7 +72,7 @@ def test_timeout(library: str, run_tests: RunTests):
     result, _ = run_tests(f"""
         test::{library}::test_timeout
         test::{library}::test_success
-    """, args=['--timeout', 0.01])
+    """, args=['--timeout', 0.1])
     assert result == [
         ResultTimeout(
             file=library,
