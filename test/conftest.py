@@ -174,7 +174,7 @@ class CompilerCommand:
 
         fs.append(self.result.as_flag(self.compiler))
         fs.append(self.optimization.as_flag(self.compiler))
-        for m in self.macros:
+        for m in sorted(self.macros, key=lambda x: x.name):
             fs.append(m.as_flag(self.compiler))
 
         fs.extend(self.flags)
