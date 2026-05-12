@@ -29,3 +29,20 @@ EXPORT void test_early_exit(void) {
 EXPORT void test_aborts(void) {
     abort();
 }
+
+EXPORT void test_print_forever(void) {
+    while (1) {
+        fprintf(stdout, "I am printing forever!\n");
+    }
+}
+
+EXPORT void test_timeout(void) {
+    fprintf(stdout, "Some output\n"); fflush(stdout);
+    fprintf(stderr, "Some error\n"); fflush(stderr);
+
+    volatile unsigned int x = 0;
+    while (1) {
+        x++;
+    }
+}
+

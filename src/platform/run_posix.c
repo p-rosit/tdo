@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 struct TdoRun {
     struct TdoTest *test;
@@ -187,7 +188,7 @@ void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct T
 
         if (status->finished > 0) fprintf(output, ",");
         if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-            tdo_run_report_status(run, arena, output, return_status, duration);
+            tdo_run_report_status(run, arena, output, return_status, duration, false);
         } else {
             tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
         }
@@ -262,10 +263,31 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         }
     }
     
+    struct timespec end_time = tdo_time_get();
+
     for (size_t i = 0; i < args.processes; i++) {
         struct TdoRun *run = &status->runs[i];
         if (run->active) {
             tdo_run_poll_exit(run, status, arena, output);
+            if (run->active) {
+                double duration = (
+                    (double)(end_time.tv_sec - run->start_time.tv_sec)
+                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
+                );
+                if (duration > args.time_limit) {
+                    // timeout
+                    if (status->finished > 0) fprintf(output, ",");
+                    tdo_run_report_status(run, arena, output, 0, duration, true);
+
+                    kill(run->pid, SIGKILL);
+                    run->active = false;
+                    close(run->out.fd);
+                    close(run->err.fd);
+                    close(run->status.fd);
+                    status->running -= 1;
+                    status->finished += 1;
+                }
+            }
         }
     }
 }

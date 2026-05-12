@@ -12,8 +12,8 @@ enum TdoError tdo_parse_size_t(size_t *number, char const *string);
 
 enum TdoError tdo_run_report_assemble_step(struct TdoString *step, struct TdoArena *arena, struct TdoString step_name, struct TdoSymbol symbol);
 
-void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration);
-void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration);
+void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration, bool timed_out);
+void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration, bool timed_out);
 void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration);
 void tdo_status_error(FILE *file, char const *fmt, ...);
 
