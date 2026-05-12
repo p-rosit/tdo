@@ -80,6 +80,25 @@ class Optimization(enum.Enum):
     minor = enum.auto()
     major = enum.auto()
 
+    def as_flag(self, compiler: str) -> str:
+        if compiler in ['gcc', 'clang']:
+            if self == Optimization.debug:
+                return '-O0'
+            if self == Optimization.minor:
+                return '-O1'
+            if self == Optimization.major:
+                return '-O2'
+            raise NotImplementedError(f'Unknown optimization level: {self}')
+        if compiler in ['cl']:
+            if self == Optimization.debug:
+                return '/Od'
+            if self == Optimization.minor:
+                return '/O1'
+            if self == Optimization.major:
+                return '/O2'
+            raise NotImplementedError(f'Unknown optimization level: {self}')
+        raise NotImplementedError(f'Unkown compiler: "{self}"')
+
 
 class Executable(enum.Enum):
     executable = enum.auto()
@@ -106,15 +125,6 @@ class CompilerCommand:
             if os.name != 'nt':
                 fs.append('-Werror')
 
-            if self.optimization == Optimization.debug:
-                fs.append('-O0')
-            elif self.optimization == Optimization.minor:
-                fs.append('-O1')
-            elif self.optimization == Optimization.major:
-                fs.append('-O2')
-            else:
-                raise NotImplementedError
-
             if self.result == Executable.dynamic:
                 fs.append('-shared')
                 if os.name != 'nt':
@@ -129,15 +139,6 @@ class CompilerCommand:
             output_flag = f'/Fe{self.output}'
             fs.append('/nologo')
 
-            if self.optimization == Optimization.debug:
-                fs.append('/Od')
-            elif self.optimization == Optimization.minor:
-                fs.append('/O1')
-            elif self.optimization == Optimization.major:
-                fs.append('/O2')
-            else:
-                raise NotImplementedError
-
             if self.result == Executable.dynamic:
                 fs.append('/LD')
             if self.result == Executable.object:
@@ -146,6 +147,8 @@ class CompilerCommand:
                 fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
         else:
             raise NotImplementedError(f'Unknown compiler: "{self.compiler}"')
+
+        fs.append(self.optimization.as_flag(self.compiler))
 
         fs.extend(self.flags)
         self.command = f'{self.compiler} {" ".join(sorted(self.files))} {" ".join(fs)} {output_flag}'
