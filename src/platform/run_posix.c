@@ -276,6 +276,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 );
                 if (duration > args.time_limit) {
                     // timeout
+                    if (status->finished > 0) fprintf(output, ",");
                     tdo_run_report_status(run, arena, output, 0, duration, true);
 
                     kill(run->pid, SIGKILL);
