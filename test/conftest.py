@@ -105,6 +105,27 @@ class Executable(enum.Enum):
     dynamic = enum.auto()
     object = enum.auto()
 
+    def as_flag(self, compiler: str) -> str:
+        if compiler in ['gcc', 'clang']:
+            if self == Executable.executable:
+                return ''
+            if self == Executable.dynamic:
+                # `-fPIC` has no meaning on windows since all executables are
+                # position independent
+                return '-shared' + ('' if os.name == 'nt' else ' -fPIC')
+            if self == Executable.object:
+                return '-c'
+            raise NotImplementedError(f'Unknown executable type: {self}')
+        if compiler in ['cl']:
+            if self == Executable.executable:
+                return ''
+            if self == Executable.dynamic:
+                return '/LD'
+            if self == Executable.object:
+                return '/c'
+            raise NotImplementedError(f'Unknown executable type: {self}')
+        raise NotImplementedError(f'Unkown compiler: "{self}"')
+
 
 @dataclasses.dataclass
 class CompilerCommand:
@@ -125,12 +146,6 @@ class CompilerCommand:
             if os.name != 'nt':
                 fs.append('-Werror')
 
-            if self.result == Executable.dynamic:
-                fs.append('-shared')
-                if os.name != 'nt':
-                    fs.append('-fPIC')
-            if self.result == Executable.object:
-                fs.append('-c')
             if self.result == Executable.executable and os.name != 'nt':
                 fs.append('-ldl')  # It's probably the main executable...
             for m in self.macros:
@@ -139,15 +154,12 @@ class CompilerCommand:
             output_flag = f'/Fe{self.output}'
             fs.append('/nologo')
 
-            if self.result == Executable.dynamic:
-                fs.append('/LD')
-            if self.result == Executable.object:
-                fs.append('/c')
             for m in self.macros:
                 fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
         else:
             raise NotImplementedError(f'Unknown compiler: "{self.compiler}"')
 
+        fs.append(self.result.as_flag(self.compiler))
         fs.append(self.optimization.as_flag(self.compiler))
 
         fs.extend(self.flags)
