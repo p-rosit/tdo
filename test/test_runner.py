@@ -70,10 +70,18 @@ def test_early_exit(library: str, run_tests: RunTests):
 
 def test_timeout(library: str, run_tests: RunTests):
     result, _ = run_tests(f"""
+        test::{library}::test_success
         test::{library}::test_timeout
         test::{library}::test_success
     """, args=['--timeout', 0.1])
     assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
         ResultTimeout(
             file=library,
             name='test_timeout',
