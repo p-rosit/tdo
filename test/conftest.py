@@ -81,66 +81,97 @@ class Optimization(enum.Enum):
     major = enum.auto()
 
 
+class Executable(enum.Enum):
+    executable = enum.auto()
+    dynamic = enum.auto()
+    object = enum.auto()
+
+
+@dataclasses.dataclass
+class CompilerCommand:
+    compiler: str
+    output: str
+    optimization: Optimization
+    files: List[str]
+    flags: List[str] = dataclasses.field(default_factory=list)
+    macros: List[Macro] = dataclasses.field(default_factory=list)
+    result: Executable = Executable.executable
+
+    def __post_init__(self):
+        fs = []
+
+        if self.compiler in ['gcc', 'clang']:
+            output_flag = f'-o {self.output}'
+            fs.extend(['-fsanitize=address,undefined', '-std=c99', '-pedantic'])
+            if os.name != 'nt':
+                fs.append('-Werror')
+
+            if self.optimization == Optimization.debug:
+                fs.append('-O0')
+            elif self.optimization == Optimization.minor:
+                fs.append('-O1')
+            elif self.optimization == Optimization.major:
+                fs.append('-O2')
+            else:
+                raise NotImplementedError
+
+            if self.result == Executable.dynamic:
+                fs.append('-shared')
+                if os.name != 'nt':
+                    fs.append('-fPIC')
+            if self.result == Executable.object:
+                fs.append('-c')
+            if self.result == Executable.executable and os.name != 'nt':
+                fs.append('-ldl')  # It's probably the main executable...
+            for m in self.macros:
+                fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
+        elif self.compiler == 'cl':
+            output_flag = f'/Fe{self.output}'
+            fs.append('/nologo')
+
+            if self.optimization == Optimization.debug:
+                fs.append('/Od')
+            elif self.optimization == Optimization.minor:
+                fs.append('/O1')
+            elif self.optimization == Optimization.major:
+                fs.append('/O2')
+            else:
+                raise NotImplementedError
+
+            if self.result == Executable.dynamic:
+                fs.append('/LD')
+            if self.result == Executable.object:
+                fs.append('/c')
+            for m in self.macros:
+                fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
+        else:
+            raise NotImplementedError(f'Unknown compiler: "{self.compiler}"')
+
+        fs.extend(self.flags)
+        self.command = f'{self.compiler} {" ".join(sorted(self.files))} {" ".join(fs)} {output_flag}'
+
+    def __hash__(self):
+        return hash(self.command)
+
+
 def compile(compiler: str, optimization: Optimization, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
     if os.name == 'nt' and compiler not in ['cl', 'clang']:
         pytest.skip(f'Compiler "{compiler}" not available on windows')
     elif os.name == 'posix' and compiler not in ['gcc', 'clang']:
         pytest.skip(f'Compiler "{compiler}" not available on posix')
 
-    fs = []
-    macros = macros or []
-    if compiler in ['gcc', 'clang']:
-        output_flag = f'-o {output}'
-        fs.extend(['-fsanitize=address,undefined', '-std=c99', '-pedantic'])
-        if os.name != 'nt':
-            fs.append('-Werror')
-
-        if optimization == Optimization.debug:
-            fs.append('-O0')
-        elif optimization == Optimization.minor:
-            fs.append('-O1')
-        elif optimization == Optimization.major:
-            fs.append('-O2')
-        else:
-            raise NotImplementedError
-
-        if dynamic:
-            fs.append('-shared')
-            if os.name != 'nt':
-                fs.append('-fPIC')
-        if not executable:
-            fs.append('-c')
-        if not dynamic and executable and os.name != 'nt':
-            fs.append('-ldl')  # It's probably the main executable...
-        for m in macros:
-            fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
-    elif compiler == 'cl':
-        output_flag = f'/Fe{output}'
-        fs.append('/nologo')
-
-        if optimization == Optimization.debug:
-            fs.append('/Od')
-        elif optimization == Optimization.minor:
-            fs.append('/O1')
-        elif optimization == Optimization.major:
-            fs.append('/O2')
-        else:
-            raise NotImplementedError
-
-        if dynamic:
-            fs.append('/LD')
-        if not executable:
-            fs.append('/c')
-        for m in macros:
-            fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
-    else:
-        raise NotImplementedError(f'Unknown compiler: "{compiler}"')
-
-    fs.extend(flags or [])
-    command = f'{compiler} {" ".join(files)} {" ".join(fs)} {output_flag}'
+    cc = CompilerCommand(
+        compiler=compiler,
+        output=output,
+        optimization=optimization if optimization is not None else Optimization.debug,
+        files=files or [],
+        flags=flags or [],
+        macros=macros or [],
+        result=(Executable.dynamic if dynamic else Executable.object if not executable else Executable.executable),
+    )
 
     with working_directory(temp_directory):
-        code = os.system(command)
+        code = os.system(cc.command)
 
     if code:
         raise CompileError('Could not compile')
