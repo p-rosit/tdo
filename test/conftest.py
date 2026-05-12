@@ -74,6 +74,13 @@ class Macro:
     name: str
     value: Optional[Any] = None
 
+    def as_flag(self, compiler: str) -> str:
+        if compiler in ['gcc', 'clang']:
+            return f'-D{self.name}={self.value or ""}'
+        if compiler in ['cl']:
+            return f'/D{self.name}={self.value or ""}'
+        raise NotImplementedError(f'Unkown compiler: "{self}"')
+
 
 class Optimization(enum.Enum):
     debug = enum.auto()
@@ -148,19 +155,16 @@ class CompilerCommand:
 
             if self.result == Executable.executable and os.name != 'nt':
                 fs.append('-ldl')  # It's probably the main executable...
-            for m in self.macros:
-                fs.append(f'-D{m.name}={m.value if m.value is not None else ""}')
         elif self.compiler == 'cl':
             output_flag = f'/Fe{self.output}'
             fs.append('/nologo')
-
-            for m in self.macros:
-                fs.append(f'/D{m.name}={m.value if m.value is not None else ""}')
         else:
             raise NotImplementedError(f'Unknown compiler: "{self.compiler}"')
 
         fs.append(self.result.as_flag(self.compiler))
         fs.append(self.optimization.as_flag(self.compiler))
+        for m in self.macros:
+            fs.append(m.as_flag(self.compiler))
 
         fs.extend(self.flags)
         self.command = f'{self.compiler} {" ".join(sorted(self.files))} {" ".join(fs)} {output_flag}'
