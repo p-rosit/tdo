@@ -229,8 +229,6 @@ def library(compiler: str, root_directory: str, temp_directory: str) -> str:
 
 
 class Runner:
-    compiled_path: Dict[Tuple[str, Optimization, Tuple[str, ...], Tuple[Macro, ...]], str] = {}
-
     def __init__(self, compiler: str, optimization: Optimization, source: str, temp_directory: str):
         self.compiler = compiler
         self.optimization = optimization
@@ -241,11 +239,7 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        key = (self.compiler, self.optimization, tuple(files or []), tuple(macros or []))
-        if (compiled_path := self.compiled_path.get(key, None)) is not None:
-            return compiled_path
-
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{uuid.uuid4()}'))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}'))
 
         compile(self.temp_directory, CompilerCommand(
             compiler=self.compiler,
@@ -255,7 +249,6 @@ class Runner:
             result=Executable.executable,
             macros=macros or [],
         ))
-        self.compiled_path[key] = compiled_path
         return compiled_path
 
 
@@ -282,14 +275,13 @@ class MockRunner:
         mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
         mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
 
-        if not os.path.isfile(mock_object):
-            compile(self.temp_directory, CompilerCommand(
-                compiler=self.runner.compiler,
-                output=mock_object,
-                optimization=self.runner.optimization,
-                files=[mock_source],
-                result=Executable.object,
-            ))
+        compile(self.temp_directory, CompilerCommand(
+            compiler=self.runner.compiler,
+            output=mock_object,
+            optimization=self.runner.optimization,
+            files=[mock_source],
+            result=Executable.object,
+        ))
 
         macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
         if func.override_main:
