@@ -184,23 +184,13 @@ class CompilerCommand:
         return hash(self.command)
 
 
-def compile(compiler: str, optimization: Optimization, temp_directory: str, files: List[str], output: str, flags: Optional[List[str]] = None, macros: Optional[List[Macro]] = None, dynamic: bool = False, executable: bool = True):
-    if os.name == 'nt' and compiler not in ['cl', 'clang']:
+def compile(directory: str, cc: CompilerCommand):
+    if os.name == 'nt' and cc.compiler not in ['cl', 'clang']:
         pytest.skip(f'Compiler "{compiler}" not available on windows')
-    elif os.name == 'posix' and compiler not in ['gcc', 'clang']:
-        pytest.skip(f'Compiler "{compiler}" not available on posix')
+    elif os.name == 'posix' and cc.compiler not in ['gcc', 'clang']:
+        pytest.skip(f'Compiler "{cc.compiler}" not available on posix')
 
-    cc = CompilerCommand(
-        compiler=compiler,
-        output=output,
-        optimization=optimization if optimization is not None else Optimization.debug,
-        files=files or [],
-        flags=flags or [],
-        macros=macros or [],
-        result=(Executable.dynamic if dynamic else Executable.object if not executable else Executable.executable),
-    )
-
-    with working_directory(temp_directory):
+    with working_directory(directory):
         code = os.system(cc.command)
 
     if code:
@@ -228,7 +218,13 @@ def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     if not os.path.isfile(source_path):
         raise FileNotFoundError(f'Missing test file: {source}')
 
-    compile(compiler, Optimization.debug, temp_directory, [source_path], output=compiled_path, dynamic=True)
+    compile(temp_directory, CompilerCommand(
+        compiler=compiler,
+        output=compiled_path,
+        optimization=Optimization.debug,
+        files=[source_path],
+        result=Executable.dynamic,
+    ))
     return compiled_path
 
 
@@ -251,7 +247,14 @@ class Runner:
 
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{uuid.uuid4()}'))
 
-        compile(self.compiler, self.optimization, self.temp_directory, [self.source, *(files or [])], compiled_path, macros=macros)
+        compile(self.temp_directory, CompilerCommand(
+            compiler=self.compiler,
+            output=compiled_path,
+            optimization=self.optimization,
+            files=[self.source, *(files or [])],
+            result=Executable.executable,
+            macros=macros or [],
+        ))
         self.compiled_path[key] = compiled_path
         return compiled_path
 
@@ -280,7 +283,13 @@ class MockRunner:
         mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
 
         if not os.path.isfile(mock_object):
-            compile(self.runner.compiler, self.runner.optimization, self.temp_directory, [mock_source], mock_object, executable=False)
+            compile(self.temp_directory, CompilerCommand(
+                compiler=self.runner.compiler,
+                output=mock_object,
+                optimization=self.runner.optimization,
+                files=[mock_source],
+                result=Executable.object,
+            ))
 
         macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
         if func.override_main:
