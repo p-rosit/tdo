@@ -225,16 +225,30 @@ def library(compiler: str, root_directory: str, temp_directory: str) -> str:
 
 
 class Runner:
-    def __init__(self, compiler: str, optimization: Optimization, source: str, temp_directory: str):
+    def __init__(self, compiler: str, optimization: Optimization, source_paths: List[str], temp_directory: str):
+        self.name = 'tdo'
         self.compiler = compiler
         self.optimization = optimization
-        self.source = source
+        self.source_paths = source_paths
         self.temp_directory = temp_directory
 
-        _, name = os.path.split(source)
-        self.name = pathlib.Path(name).with_suffix('')
-
     def __call__(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
+        object_paths = []
+        for path in self.source_paths:
+            _, name = os.path.split(path)
+
+            object_path = os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{pathlib.Path(name).with_suffix("")}.obj')
+            object_paths.append(object_path)
+
+            compile(self.temp_directory, CompilerCommand(
+                compiler=self.compiler,
+                output=object_path,
+                optimization=self.optimization,
+                files=[path],
+                result=Executable.object,
+                macros=[Macro(name='TDO_BUILD_TEST'), *(macros or [])],
+            ))
+
         identifier = hash((tuple(sorted(files or [])), tuple(sorted(macros or [], key=lambda x: x.name))))
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{identifier}'))
 
@@ -242,7 +256,7 @@ class Runner:
             compiler=self.compiler,
             output=compiled_path,
             optimization=self.optimization,
-            files=[self.source, *(files or [])],
+            files=[*object_paths, *(files or [])],
             result=Executable.executable,
             macros=macros or [],
         ))
@@ -251,8 +265,21 @@ class Runner:
 
 @pytest.fixture
 def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
-    source_path = os.path.join(root_directory, '..', 'src', 'main.c')
-    return Runner(compiler, optimization, source_path, temp_directory)
+    sources = [
+        'arena.c',
+        'arguments.c',
+        'main.c',
+        'platform.c',
+        'run.c',
+        'str.c',
+        'test.c',
+    ]
+    source_paths = [
+        os.path.join(root_directory, '..', 'src', name)
+        for name in sources
+    ]
+
+    return Runner(compiler, optimization, source_paths, temp_directory)
 
 
 @dataclasses.dataclass
