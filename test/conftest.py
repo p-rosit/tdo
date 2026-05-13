@@ -25,14 +25,10 @@ def pytest_generate_tests(metafunc):
     metafunc.parametrize(
         "compiler",
         metafunc.config.getoption("--compiler").split(","),
-        scope='session',
-        indirect=True,
     )
     metafunc.parametrize(
         "optimization",
         [Optimization[level] for level in metafunc.config.getoption("--optimization").split(",")],
-        scope='session',
-        indirect=True,
     )
 
 
@@ -199,17 +195,17 @@ def compile(directory: str, cc: CompilerCommand):
         raise CompileError('Could not compile')
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def compiler(request) -> str:
     return request.param
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def optimization(request) -> Optimization:
     return request.param
 
 
-@pytest.fixture()
+@pytest.fixture
 def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     name = 'library'
     source = f'{name}.c'
@@ -253,7 +249,7 @@ class Runner:
         return compiled_path
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
     source_path = os.path.join(root_directory, '..', 'src', 'main.c')
     return Runner(compiler, optimization, source_path, temp_directory)
