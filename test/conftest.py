@@ -258,10 +258,13 @@ class Mock:
     override_main: bool = False
 
 
-class MockRunner(Runner):
+class MockRunner:
     def __init__(self, compiler: str, optimization: Optimization, source_paths: List[str], temp_directory: str, root_directory: str):
+        self.name = 'tdo'
+        self.compiler = compiler
+        self.optimization = optimization
+        self.temp_directory = temp_directory
         self.root_directory = root_directory
-        super().__init__(compiler, optimization, temp_directory, root_directory)
         self.source_paths = source_paths
 
     def __call__(self, func: Mock) -> str:
