@@ -225,14 +225,61 @@ def library(compiler: str, root_directory: str, temp_directory: str) -> str:
 
 
 class Runner:
-    def __init__(self, compiler: str, optimization: Optimization, source_paths: List[str], temp_directory: str):
+    def __init__(self, compiler: str, optimization: Optimization, temp_directory: str, root_directory: str):
         self.name = 'tdo'
+        self.source = os.path.join(root_directory, '..', 'src', 'main.c')
         self.compiler = compiler
         self.optimization = optimization
-        self.source_paths = source_paths
         self.temp_directory = temp_directory
 
-    def __call__(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
+    def __call__(self) -> str:
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}'))
+
+        compile(self.temp_directory, CompilerCommand(
+            compiler=self.compiler,
+            output=compiled_path,
+            optimization=self.optimization,
+            files=[self.source],
+            result=Executable.executable,
+        ))
+        return compiled_path
+
+
+@pytest.fixture
+def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
+    return Runner(compiler, optimization, temp_directory, root_directory)
+
+
+@dataclasses.dataclass
+class Mock:
+    names: List[str]
+    file: str
+    defined_in: Optional[str] = None
+    override_main: bool = False
+
+
+class MockRunner(Runner):
+    def __init__(self, compiler: str, optimization: Optimization, source_paths: List[str], temp_directory: str, root_directory: str):
+        self.root_directory = root_directory
+        super().__init__(compiler, optimization, temp_directory, root_directory)
+        self.source_paths = source_paths
+
+    def __call__(self, func: Mock) -> str:
+        mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
+        mock_object = os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{pathlib.Path(func.file).with_suffix(".obj")}')
+
+        compile(self.temp_directory, CompilerCommand(
+            compiler=self.compiler,
+            output=mock_object,
+            optimization=self.optimization,
+            files=[mock_source],
+            result=Executable.object,
+        ))
+
+        macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
+        if func.override_main:
+            macros.append(Macro(name='main', value='tdo_runner_main'))
+
         object_paths = []
         for path in self.source_paths:
             _, name = os.path.split(path)
@@ -249,14 +296,14 @@ class Runner:
                 macros=[Macro(name='TDO_BUILD_TEST'), *(macros or [])],
             ))
 
-        identifier = hash((tuple(sorted(files or [])), tuple(sorted(macros or [], key=lambda x: x.name))))
+        identifier = hash((tuple(func.names), func.file, func.defined_in, func.override_main))
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{identifier}'))
 
         compile(self.temp_directory, CompilerCommand(
             compiler=self.compiler,
             output=compiled_path,
             optimization=self.optimization,
-            files=[*object_paths, *(files or [])],
+            files=[*object_paths, mock_object],
             result=Executable.executable,
             macros=macros or [],
         ))
@@ -264,7 +311,7 @@ class Runner:
 
 
 @pytest.fixture
-def runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str) -> Runner:
+def mock_runner(compiler: str, optimization: Optimization, root_directory: str, temp_directory: str):
     sources = [
         'arena.c',
         'arguments.c',
@@ -278,48 +325,7 @@ def runner(compiler: str, optimization: Optimization, root_directory: str, temp_
         os.path.join(root_directory, '..', 'src', name)
         for name in sources
     ]
-
-    return Runner(compiler, optimization, source_paths, temp_directory)
-
-
-@dataclasses.dataclass
-class Mock:
-    names: List[str]
-    file: str
-    override_main: bool = False
-
-
-class MockRunner:
-    def __init__(self, runner: Runner, root_directory: str, temp_directory: str):
-        self.runner = runner
-        self.root_directory = root_directory
-        self.temp_directory = temp_directory
-
-    def __call__(self, func: Mock) -> str:
-        mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
-        mock_object = os.path.join(self.temp_directory, f'{self.runner.compiler}_{self.runner.optimization.name}_{pathlib.Path(func.file).with_suffix(".obj")}')
-
-        compile(self.temp_directory, CompilerCommand(
-            compiler=self.runner.compiler,
-            output=mock_object,
-            optimization=self.runner.optimization,
-            files=[mock_source],
-            result=Executable.object,
-        ))
-
-        macros = [Macro(name=name, value=f'tdo_mock_{name}') for name in func.names]
-        if func.override_main:
-            macros.append(Macro(name='main', value='tdo_runner_main'))
-
-        return self.runner(
-            files=[mock_object],
-            macros=macros,
-        )
-
-
-@pytest.fixture
-def mock_runner(root_directory: str, temp_directory: str, runner: Runner):
-    return MockRunner(runner, root_directory, temp_directory)
+    return MockRunner(compiler, optimization, source_paths, temp_directory, root_directory)
 
 
 @dataclasses.dataclass
