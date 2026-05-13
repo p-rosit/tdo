@@ -1,6 +1,7 @@
 from typing import Callable, Generator, List, Optional, Any, Dict, Tuple, Union, TYPE_CHECKING
 import re
 import enum
+import functools
 import dataclasses
 import contextlib
 import subprocess
@@ -184,6 +185,7 @@ class CompilerCommand:
         return hash(self.command)
 
 
+@functools.cache
 def compile(directory: str, cc: CompilerCommand):
     if os.name == 'nt' and cc.compiler not in ['cl', 'clang']:
         pytest.skip(f'Compiler "{compiler}" not available on windows')
@@ -207,16 +209,14 @@ def optimization(request) -> Optimization:
     return request.param
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def library(compiler: str, root_directory: str, temp_directory: str) -> str:
     name = 'library'
     source = f'{name}.c'
-    compiled = dynamic_library(name)
+    compiled = dynamic_library(f'{compiler}_{name}')
 
     source_path = os.path.join(root_directory, source)
     compiled_path = os.path.join(temp_directory, compiled)
-    if not os.path.isfile(source_path):
-        raise FileNotFoundError(f'Missing test file: {source}')
 
     compile(temp_directory, CompilerCommand(
         compiler=compiler,
