@@ -234,7 +234,7 @@ class Runner:
         _, name = os.path.split(source)
         self.name = pathlib.Path(name).with_suffix('')
 
-    def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
+    def __call__(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
         identifier = hash((tuple(sorted(files or [])), tuple(sorted(macros or [], key=lambda x: x.name))))
         compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{identifier}'))
 
@@ -284,12 +284,10 @@ class MockRunner:
         if func.override_main:
             macros.append(Macro(name='main', value='tdo_runner_main'))
 
-        r = self.runner.compile(
+        return self.runner(
             files=[mock_object],
             macros=macros,
         )
-
-        return r
 
 
 @pytest.fixture
@@ -436,7 +434,7 @@ def strip_asan_noise(text: str) -> str:
 def run_tests(runner: Runner):
     def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
         p = subprocess.Popen(
-            [executable or runner.compile(), *[str(a) for a in args or []]],
+            [executable or runner(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
