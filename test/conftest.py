@@ -239,7 +239,8 @@ class Runner:
         self.name = pathlib.Path(name).with_suffix('')
 
     def compile(self, files: Optional[List[str]] = None, macros: Optional[List[Macro]] = None) -> str:
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}'))
+        identifier = hash((tuple(sorted(files or [])), tuple(sorted(macros or [], key=lambda x: x.name))))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{identifier}'))
 
         compile(self.temp_directory, CompilerCommand(
             compiler=self.compiler,
