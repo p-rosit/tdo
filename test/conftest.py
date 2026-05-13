@@ -297,7 +297,7 @@ class MockRunner:
 
     def __call__(self, func: Mock) -> str:
         mock_source = os.path.join(self.root_directory, f'mock/{func.file}')
-        mock_object = os.path.join(self.temp_directory, pathlib.Path(func.file).with_suffix('.obj'))
+        mock_object = os.path.join(self.temp_directory, f'{self.runner.compiler}_{self.runner.optimization.name}_{pathlib.Path(func.file).with_suffix(".obj")}')
 
         compile(self.temp_directory, CompilerCommand(
             compiler=self.runner.compiler,
