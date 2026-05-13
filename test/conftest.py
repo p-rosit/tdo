@@ -233,8 +233,8 @@ class Runner:
         self.temp_directory = temp_directory
 
     def __call__(self) -> str:
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}'))
-
+        name = f'{self.compiler}_{self.optimization.name}_{self.name}'
+        compiled_path = executable(os.path.join(self.temp_directory, name))
         compile(self.temp_directory, CompilerCommand(
             compiler=self.compiler,
             output=compiled_path,
