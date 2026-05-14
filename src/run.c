@@ -317,7 +317,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, step_name, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, last_line.bytes, "could not build step", duration);
+            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
@@ -351,7 +351,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, last_line.bytes, "could not build step", duration);
+            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
@@ -360,7 +360,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, run->test->symbol);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, last_line.bytes, "could not build step", duration);
+            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
