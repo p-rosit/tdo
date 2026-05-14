@@ -71,6 +71,11 @@ struct TdoRunStatus {
     size_t started;
     size_t finished;
     size_t running;
+    size_t success;
+    size_t exit;
+    size_t timeout;
+    size_t signal;
+    size_t error;
     bool fork_failed;
     bool log_setup_failed;
 };
@@ -297,9 +302,9 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
 
     if (status->finished > 0) fprintf(output, ",");
     if (run->read_too_much) {
-        tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
+        tdo_run_report_error(status, *run->test, output, NULL, "could not allocate space for output", duration);
     } else {
-        tdo_run_report_status(run, arena, output, run->exit_code, duration, run->timed_out);
+        tdo_run_report_status(status, run, arena, output, run->exit_code, duration, run->timed_out);
     }
 
     run->active = false;
@@ -519,6 +524,11 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .started = 0,
         .finished = 0,
         .running = 0,
+        .success = 0,
+        .exit = 0,
+        .timeout = 0,
+        .signal = 0,
+        .error = 0,
         .fork_failed = false,
         .log_setup_failed = false,
     };

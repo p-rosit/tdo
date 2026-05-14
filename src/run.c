@@ -45,7 +45,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
     fprintf(file, "\"");
 }
 
-void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration, bool timed_out) {
+void tdo_run_report_exit(struct TdoRunStatus *status, struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus process_status, double duration, bool timed_out) {
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -61,27 +61,33 @@ void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoPr
 
     fprintf(file, "\t\t\"status\": \"");
     if (timed_out) {
+        status->timeout += 1;
         fprintf(file, "timeout");
-    } else if (tdo_process_status_is_exit(status)) {
+    } else if (tdo_process_status_is_exit(process_status)) {
         if (step[0] == 'f') {
+            status->success += 1;
             fprintf(file, "complete");
         } else {
+            status->exit += 1;
             fprintf(file, "exit");
         }
-    } else if (tdo_process_status_is_signal(status)) {
+    } else if (tdo_process_status_is_signal(process_status)) {
+        status->signal += 1;
         fprintf(file, "signal");
-    } else if (tdo_process_status_is_stop(status)) {
+    } else if (tdo_process_status_is_stop(process_status)) {
+        fprintf(stderr, "When can this happen anyway?\n");
+        abort();
         fprintf(file, "stop");
     }
     fprintf(file, "\"");
 
     if (!timed_out) {
-        if (tdo_process_status_is_exit(status) && step[0] != 'f') {
-            fprintf(file, ",\n\t\t\"exit\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_exit(status));
-        } else if (tdo_process_status_is_signal(status)) {
-            fprintf(file, ",\n\t\t\"signal\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_signal(status));
-        } else if (tdo_process_status_is_stop(status)) {
-            fprintf(file, ",\n\t\t\"stop\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_stop(status));
+        if (tdo_process_status_is_exit(process_status) && step[0] != 'f') {
+            fprintf(file, ",\n\t\t\"exit\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_exit(process_status));
+        } else if (tdo_process_status_is_signal(process_status)) {
+            fprintf(file, ",\n\t\t\"signal\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_signal(process_status));
+        } else if (tdo_process_status_is_stop(process_status)) {
+            fprintf(file, ",\n\t\t\"stop\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_stop(process_status));
         }
     }
 
@@ -97,7 +103,9 @@ void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoPr
     fprintf(file, "\n\t}");
 }
 
-void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
+void tdo_run_report_error(struct TdoRunStatus *status, struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
+    status->error += 1;
+
     fprintf(file, "\n");
     fprintf(file, "\t{\n");
 
@@ -200,25 +208,25 @@ enum TdoError tdo_run_report_assemble_step(struct TdoString *step, struct TdoAre
     return TDO_ERROR_OK;
 }
 
-void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration, bool timed_out) {
+void tdo_run_report_status(struct TdoRunStatus *status, struct TdoRun *run, struct TdoArena *arena, FILE *file, TdoProcessStatus process_status, double duration, bool timed_out) {
     struct TdoArenaState state = tdo_arena_state_get(arena);
 
     struct TdoString log_status = run->status.data;
     if (log_status.bytes == NULL || log_status.length == 0) {
-        tdo_run_report_error(*run->test, file, NULL, "no data in status pipe", duration);
+        tdo_run_report_error(status, *run->test, file, NULL, "no data in status pipe", duration);
         goto done;
     } else if (log_status.bytes[log_status.length - 1] != '\n') {
-        tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, does not end with newline", duration);
+        tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, does not end with newline", duration);
         goto done;
     } else if (log_status.length <= 1) {
-        tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, only contains newline", duration);
+        tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, only contains newline", duration);
         goto done;
     }
 
     struct TdoString last_line = tdo_string_init();
     enum TdoError err = tdo_string_previous_line(&last_line, run->status.data, run->status.data.length - 1);
     if (err != TDO_ERROR_OK || last_line.length <= 0) {
-        tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, could not find last line", duration);
+        tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, could not find last line", duration);
         goto done;
     }
     last_line.bytes[last_line.length] = '\0'; // replace newline with null terminator
@@ -229,7 +237,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
         struct TdoString step_name;
         err = tdo_string_previous_line(&step_name, run->status.data, run->status.data.length - last_line.length - 2);
         if (err != TDO_ERROR_OK || last_line.length <= 0) {
-            tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, could not find line before error", duration);
+            tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, could not find line before error", duration);
             goto done;
         }
         step_name.bytes[step_name.length] = '\0'; // overwrite newline
@@ -241,7 +249,7 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
             size_t index;
             enum TdoError err_parse = tdo_parse_size_t(&index, step_name.bytes + 2);
             if (err_parse != TDO_ERROR_OK) {
-                tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
+                tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
                 goto done;
             }
 
@@ -258,28 +266,28 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
             }
 
             if (current == NULL) {
-                tdo_run_report_error(*run->test, file, step_name.bytes, "invalid current fixture index", duration);
+                tdo_run_report_error(status, *run->test, file, step_name.bytes, "invalid current fixture index", duration);
                 goto done;
             }
         } else {
-            tdo_run_report_error(*run->test, file, step_name.bytes, "unknown error", duration);
+            tdo_run_report_error(status, *run->test, file, step_name.bytes, "unknown error", duration);
             goto done;
         }
 
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, step_name, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
+            tdo_run_report_error(status, *run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
-        tdo_run_report_error(*run->test, file, step.bytes, last_line.bytes + 1, duration);
+        tdo_run_report_error(status, *run->test, file, step.bytes, last_line.bytes + 1, duration);
     } else if (last_line.length >= 2 && (last_line.bytes[0] == 'b' || last_line.bytes[0] == 'a') && last_line.bytes[1] == '_') {
         // unexpected exit while running fixture
         size_t index;
         enum TdoError err_parse = tdo_parse_size_t(&index, last_line.bytes + 2);
         if (err_parse != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
+            tdo_run_report_error(status, *run->test, file, NULL, "malformed status pipe, could not parse fixture index", duration);
             goto done;
         }
 
@@ -296,34 +304,34 @@ void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *fil
             }
         }
         if (current == NULL) {
-            tdo_run_report_error(*run->test, file, last_line.bytes, "invalid current fixture index", duration);
+            tdo_run_report_error(status, *run->test, file, last_line.bytes, "invalid current fixture index", duration);
             goto done;
         }
 
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, *current);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
+            tdo_run_report_error(status, *run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
-        tdo_run_report_exit(run, file, step.bytes, status, duration, timed_out);
+        tdo_run_report_exit(status, run, file, step.bytes, process_status, duration, timed_out);
     } else if (strncmp(last_line.bytes, "test", 4) == 0) {
         struct TdoString step;
         enum TdoError err_step = tdo_run_report_assemble_step(&step, arena, last_line, run->test->symbol);
         if (err_step != TDO_ERROR_OK) {
-            tdo_run_report_error(*run->test, file, NULL, "could not build step", duration);
+            tdo_run_report_error(status, *run->test, file, NULL, "could not build step", duration);
             goto done;
         }
 
         // unexpected exit while running test
-        tdo_run_report_exit(run, file, step.bytes, status, duration, timed_out);
+        tdo_run_report_exit(status, run, file, step.bytes, process_status, duration, timed_out);
     } else if (strncmp(last_line.bytes, "finished", 8) == 0) {
         // test finished normally
-        tdo_run_report_exit(run, file, last_line.bytes, status, duration, timed_out);
+        tdo_run_report_exit(status, run, file, last_line.bytes, process_status, duration, timed_out);
     } else {
         // unknown status
-        tdo_run_report_error(*run->test, file, NULL, "unknown error", duration);
+        tdo_run_report_error(status, *run->test, file, NULL, "unknown error", duration);
     }
 
     done:
@@ -456,14 +464,14 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not create child process", -1.0);
+                tdo_run_report_error(&status, ts[i], output, NULL, "could not create child process", -1.0);
                 status.finished += 1;
             }
         } else if (status.running == 0 && status.log_setup_failed) {
             struct TdoTest *ts = tests.data;
             for (size_t i = status.started; i < tests.length; i++) {
                 if (status.finished > 0) fprintf(output, ",");
-                tdo_run_report_error(ts[i], output, NULL, "could not setup log redirection", -1.0);
+                tdo_run_report_error(&status, ts[i], output, NULL, "could not setup log redirection", -1.0);
                 status.finished += 1;
             }
         }
