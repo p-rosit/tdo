@@ -55,6 +55,39 @@ def test_fork_fails(mock_runner: MockRunner, library: str, run_tests: RunTests):
     ]
 
 
+def test_arena_alloc_fails(mock_runner: MockRunner, library: str, run_tests: RunTests):
+    r = mock_runner(Mock(names=['tdo_arena_alloc', 'tdo_arena_resize'], file='mock_single_arena_alloc.c', defined_in='arena.c', override_main=True))
+
+    result, _ = run_tests(f"""
+        test::{library}::test_success
+        test::{library}::test_print_forever
+        test::{library}::test_success
+    """, executable=r, args=['--mock-arena-alloc-max', 3000])
+    assert result == [
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+        ResultError(
+            file=library,
+            name='test_print_forever',
+            duration=approx(0.0, abs=100.0),
+            error='could not allocate space for output',
+            step=None,
+        ),
+        ResultComplete(
+            file=library,
+            name='test_success',
+            duration=approx(0.0, abs=100.0),
+            stdout='',
+            stderr='',
+        ),
+    ]
+
+
 @pytest.mark.parametrize('amount', (3, 4, 5))
 @pytest.mark.skipif(os.name != 'posix', reason='Does not run on non-posix system')
 def test_pipe_fails(mock_runner: MockRunner, library: str, run_tests: RunTests, amount: int):

@@ -189,6 +189,8 @@ void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct T
         if (status->finished > 0) fprintf(output, ",");
         if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
             tdo_run_report_status(run, arena, output, return_status, duration, false);
+        } else if (out_err == TDO_ERROR_MEMORY || err_err == TDO_ERROR_MEMORY || status_err == TDO_ERROR_MEMORY) {
+            tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
         } else {
             tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
         }
@@ -229,7 +231,11 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                     );
 
                     if (status->finished > 0) fprintf(output, ",");
-                    tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                    if (err == TDO_ERROR_MEMORY) {
+                        tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
+                    } else {
+                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                    }
 
                     kill(run->pid, SIGKILL);
                     run->active = false;
