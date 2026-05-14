@@ -482,6 +482,7 @@ def run_tests(runner: Runner):
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
+            assert p.returncode != 0, f'Successful run returned malformed json: "{out}"'
             return ErrorCode(code=p.returncode), err
 
         result = []
