@@ -133,6 +133,19 @@ class Executable(enum.Enum):
             raise NotImplementedError(f'Unknown executable type: {self}')
         raise NotImplementedError(f'Unkown compiler: "{self}"')
 
+    def output_flag(self, compiler: str, name: str) -> str:
+        if compiler in ['gcc', 'clang']:
+            return f'-o {name}'
+        if compiler in ['cl']:
+            if self == Executable.executable:
+                return f'/Fe{name}'
+            if self == Executable.dynamic:
+                return f'/Fe{name}'
+            if self == Executable.object:
+                return f'/Fo{name}'
+            raise NotImplementedError(f'Unknown executable type: {self}')
+        raise NotImplementedError(f'Unkown compiler: "{self}"')
+
 
 @dataclasses.dataclass
 class CompilerCommand:
@@ -148,7 +161,6 @@ class CompilerCommand:
         fs = []
 
         if self.compiler in ['gcc', 'clang']:
-            output_flag = f'-o {self.output}'
             fs.extend(['-fsanitize=address,undefined', '-std=c99', '-pedantic'])
             if os.name != 'nt':
                 fs.append('-Werror')
@@ -156,7 +168,6 @@ class CompilerCommand:
             if self.result == Executable.executable and os.name != 'nt':
                 fs.append('-ldl')  # It's probably the main executable...
         elif self.compiler == 'cl':
-            output_flag = f'/Fe{self.output}'
             fs.append('/nologo')
         else:
             raise NotImplementedError(f'Unknown compiler: "{self.compiler}"')
@@ -167,7 +178,7 @@ class CompilerCommand:
             fs.append(m.as_flag(self.compiler))
 
         fs.extend(self.flags)
-        self.command = f'{self.compiler} {" ".join(sorted(self.files))} {" ".join(fs)} {output_flag}'
+        self.command = f'{self.compiler} {" ".join(sorted(self.files))} {" ".join(fs)} {self.result.output_flag(self.compiler, self.output)}'
 
     def __hash__(self):
         return hash(self.command)
