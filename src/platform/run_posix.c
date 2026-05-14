@@ -210,6 +210,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         for (size_t i = 0; i < fd_count; i++) {
             if (status->fds[i].revents & POLLIN) {
                 struct TdoRun *run = &status->runs[status->fd_to_idx[i]];
+                if (!run->active) continue;
 
                 enum TdoError err;
                 if (status->fds[i].fd == run->out.fd) {
