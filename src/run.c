@@ -439,6 +439,8 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     result = tdo_run_status_init(&status, arena, args);
     if (result != TDO_ERROR_OK) goto error_setup;
 
+    TdoMonotoneTime time_start = tdo_time_get();
+
     fprintf(output, "[");
     while (status.finished < tests.length) {
         while (status.running < args.processes && status.started < tests.length && !status.fork_failed && !status.log_setup_failed) {
@@ -479,6 +481,22 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
 
     fprintf(output, "\n]\n");
     result = TDO_ERROR_OK;
+
+    TdoMonotoneTime time_end = tdo_time_get();
+
+    char const *spacing = "    ";
+
+    fprintf(stderr, "Ran %zu tests in %.2lf seconds:\n", tests.length, tdo_time_between(time_end, time_start));
+    fprintf(stderr, "%ssuccess: %3zu/%zu\n", spacing, status.success, tests.length);
+
+    size_t total_fails = status.exit + status.timeout + status.signal + status.error;
+    if (total_fails) {
+        fprintf(stderr, "%sfailure: %3zu/%zu\n", spacing, total_fails, tests.length);
+        if (status.exit > 0) fprintf(stderr, "%s%sexit:    %3zu/%zu\n", spacing, spacing, status.exit, total_fails);
+        if (status.timeout > 0) fprintf(stderr, "%s%stimeout: %3zu/%zu\n", spacing, spacing, status.timeout, total_fails);
+        if (status.signal > 0) fprintf(stderr, "%s%ssignal:  %3zu/%zu\n", spacing, spacing, status.signal, total_fails);
+        if (status.error > 0) fprintf(stderr, "%s%serror:   %3zu/%zu\n", spacing, spacing, status.error, total_fails);
+    }
 
     tdo_run_status_deinit(status, args);
     error_setup:
