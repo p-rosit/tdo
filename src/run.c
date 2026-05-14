@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 600
 #include "platform.h"
 #include "str.h"
 #include "arguments.h"

@@ -1,10 +1,21 @@
 #define _XOPEN_SOURCE 600
-#include "arena.c"
-#include "str.c"
-#include "arguments.c"
-#include "platform.c"
-#include "test.c"
-#include "run.c"
+
+#ifndef TDO_BUILD_TEST
+    #include "arena.c"
+    #include "str.c"
+    #include "arguments.c"
+    #include "platform.c"
+    #include "test.c"
+    #include "run.c"
+#else
+    #include "arena.h"
+    #include "str.h"
+    #include "arguments.h"
+    #include "platform.h"
+    #include "test.h"
+    #include "run.h"
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 
