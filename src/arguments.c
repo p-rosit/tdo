@@ -96,7 +96,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 }
             } else if (strcmp(s, "--timeout") == 0) {
                 if (argc <= 1) {
-                    fprintf(stderr, "Missing timeout argument\n");
+                    fprintf(stderr, "Missing timeout argument to '--timeout'\n");
                     result = TDO_ERROR_ARG_PARSE;
                 } else {
                     argc -= 1; argv += 1;
@@ -106,13 +106,13 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     char *err;
                     float timeout = strtof(timeout_str, &err);
                     if (errno) {
-                        perror("Could not parse amount of processes");
+                        perror("Could not parse timeout");
                         result = TDO_ERROR_ARG_PARSE;
                     } else if (*err != '\0') {
-                        fprintf(stderr, "Could not parse amount of threads: '%s'\n", timeout_str);
+                        fprintf(stderr, "Could not parse timeout: '%s'\n", timeout_str);
                         result = TDO_ERROR_ARG_PARSE;
                     } else if (timeout <= 0) {
-                        fprintf(stderr, "Amount of processes must be strictly positive, got %f\n", timeout);
+                        fprintf(stderr, "Timeout must be strictly positive, got %f\n", timeout);
                         result = TDO_ERROR_ARG_PARSE;
                     } else {
                         args->time_limit = timeout;
