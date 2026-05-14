@@ -46,7 +46,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 char const *job_str = NULL;
                 if (strcmp(s, "-j") == 0) {
                     if (argc <= 1) {
-                        fprintf(stderr, "Missing job argument to '-j'\n");
+                        fprintf(stderr, "Missing argument to '-j'\n");
                         result = TDO_ERROR_ARG_PARSE;
                         argc -= 1; argv += 1;
                         continue;
@@ -96,7 +96,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 }
             } else if (strcmp(s, "--timeout") == 0) {
                 if (argc <= 1) {
-                    fprintf(stderr, "Missing timeout argument to '--timeout'\n");
+                    fprintf(stderr, "Missing argument to '--timeout'\n");
                     result = TDO_ERROR_ARG_PARSE;
                 } else {
                     argc -= 1; argv += 1;
