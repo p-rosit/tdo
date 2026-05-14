@@ -66,7 +66,6 @@ struct TdoRunStatus {
     struct TdoRun *runs;
     HANDLE job;
     HANDLE iocp;
-    LARGE_INTEGER clock_frequency;
     DWORD pid;
     struct TdoString executable_name;
     size_t started;
@@ -294,7 +293,7 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
     if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0 || tdo_run_pipes_cancelling(run)) return;
 
     LARGE_INTEGER end_time = tdo_time_get();
-    double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+    double duration = tdo_time_between(end_time, run->start_time);
 
     if (status->finished > 0) fprintf(output, ",");
     if (run->read_too_much) {
@@ -401,7 +400,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                     enum TdoError err = tdo_log_append(log, arena, bytes_transferred, ov->buffer);
                     if (err != TDO_ERROR_OK) {
                         LARGE_INTEGER end_time = tdo_time_get();
-                        double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
+                        double duration = tdo_time_between(end_time, run->start_time);
 
                         run->read_too_much = true;
                         TerminateProcess(run->process_handle, 1); // test produced more logs than we can read, why let it continue?
@@ -517,7 +516,6 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .runs = NULL,
         .job = NULL,
         .iocp = NULL,
-        .clock_frequency = { .QuadPart = 1 },
         .started = 0,
         .finished = 0,
         .running = 0,
@@ -579,8 +577,6 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         result = TDO_ERROR_OS;
         goto error_job_settings;
     }
-
-    QueryPerformanceFrequency(&status->clock_frequency);
 
     for (size_t i = 0; i < args.processes; i++) {
         struct TdoRun *run = &status->runs[i];

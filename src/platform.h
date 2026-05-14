@@ -37,6 +37,7 @@
 #endif
 
 TdoMonotoneTime tdo_time_get(void);
+double tdo_time_between(TdoMonotoneTime end, TdoMonotoneTime start);
 
 FILE *tdo_file_open_exclusive(char const *path, bool overwrite);
 

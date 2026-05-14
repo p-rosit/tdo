@@ -180,11 +180,7 @@ void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct T
         enum TdoError status_err = tdo_log_drain(&run->status, arena);
 
         struct timespec end_time = tdo_time_get();
-
-        double duration = (
-            (double)(end_time.tv_sec - run->start_time.tv_sec)
-            + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-        );
+        double duration = tdo_time_between(end_time, run->start_time);
 
         if (status->finished > 0) fprintf(output, ",");
         if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
@@ -225,10 +221,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
 
                 if (err != TDO_ERROR_OK) {
                     TdoMonotoneTime end_time = tdo_time_get();
-                    double duration = (
-                        (double)(end_time.tv_sec - run->start_time.tv_sec)
-                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                    );
+                    double duration = tdo_time_between(end_time, run->start_time);
 
                     if (status->finished > 0) fprintf(output, ",");
                     if (err == TDO_ERROR_MEMORY) {
@@ -255,10 +248,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         for (size_t i = 0; i < args.processes; i++) {
             struct TdoRun *run = &status->runs[i];
             if (run->active) {
-                double duration = (
-                    (double)(end_time.tv_sec - run->start_time.tv_sec)
-                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                );
+                double duration = tdo_time_between(end_time, run->start_time);
                 tdo_run_report_error(*run->test, output, NULL, "could not poll pipes", duration);
                 status->finished += 1;
                 run->active = false;
@@ -280,10 +270,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         if (run->active) {
             tdo_run_poll_exit(run, status, arena, output);
             if (run->active) {
-                double duration = (
-                    (double)(end_time.tv_sec - run->start_time.tv_sec)
-                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                );
+                double duration = tdo_time_between(end_time, run->start_time);
                 if (duration > args.time_limit) {
                     // timeout
                     if (status->finished > 0) fprintf(output, ",");
