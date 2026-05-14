@@ -43,9 +43,24 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     args->single_test = argv[0];
                 }
             } else if (strncmp(s, "-j", 2) == 0) {
+                char const *job_str = NULL;
+                if (strcmp(s, "-j") == 0) {
+                    if (argc <= 1) {
+                        fprintf(stderr, "Missing job argument to '-j'\n");
+                        result = TDO_ERROR_ARG_PARSE;
+                        argc -= 1; argv += 1;
+                        continue;
+                    } else {
+                        argc -= 1; argv += 1;
+                        job_str = argv[0];
+                    }
+                } else {
+                    job_str = s + 2;
+                }
+
                 errno = 0;
                 char *err;
-                unsigned long threads = strtoul(s + 2, &err, 10);
+                unsigned long threads = strtoul(job_str, &err, 10);
                 if (errno) {
                     perror("Could not parse amount of processes");
                     result = TDO_ERROR_ARG_PARSE;
