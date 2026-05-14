@@ -34,7 +34,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
             }
         } else {
             // flag
-            if (strncmp(s, "-t", 3) == 0) {
+            if (strcmp(s, "-t") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing test argument to '-t'\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -61,7 +61,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 } else {
                     args->processes = (size_t) threads;
                 }
-            } else if (strncmp(s, "-o", 3) == 0) {
+            } else if (strcmp(s, "-o") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing output file argument to '-o'\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -69,9 +69,9 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->output = argv[0];
                 }
-            } else if (strncmp(s, "-f", 3) == 0) {
+            } else if (strcmp(s, "-f") == 0) {
                 args->overwrite = true;
-            } else if (strncmp(s, "--internal-status", 18) == 0) {
+            } else if (strcmp(s, "--internal-status") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing status file\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -79,7 +79,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->internal_status = argv[0];
                 }
-            } else if (strncmp(s, "--timeout", 10) == 0) {
+            } else if (strcmp(s, "--timeout") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing timeout argument\n");
                     result = TDO_ERROR_ARG_PARSE;
