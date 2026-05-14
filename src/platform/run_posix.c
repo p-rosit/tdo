@@ -221,9 +221,6 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 }
 
                 if (err != TDO_ERROR_OK) {
-                    run->active = false;
-                    status->running -= 1;
-
                     TdoMonotoneTime end_time = tdo_time_get();
                     double duration = (
                         (double)(end_time.tv_sec - run->start_time.tv_sec)
@@ -232,8 +229,14 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
 
                     if (status->finished > 0) fprintf(output, ",");
                     tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+
+                    kill(run->pid, SIGKILL);
+                    run->active = false;
+                    close(run->out.fd);
+                    close(run->err.fd);
+                    close(run->status.fd);
+                    status->running -= 1;
                     status->finished += 1;
-                    // TODO: kill process since it can't be read from? Barfed too much logs or something idk
                 }
             }
         }
