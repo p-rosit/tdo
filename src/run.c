@@ -128,54 +128,6 @@ void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, cha
     fprintf(file, "\t}");
 }
 
-void tdo_run_report_timeout(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration) {
-    fprintf(file, "\n");
-    fprintf(file, "\t{\n");
-
-    fprintf(file, "\t\t\"file\": \"");
-    tdo_json_escaped(file, run->test->symbol.file->name);
-    fprintf(file, "\",\n");
-
-    fprintf(file, "\t\t\"name\": \"");
-    tdo_json_escaped(file, run->test->symbol.name);
-    fprintf(file, "\",\n");
-
-    fprintf(file, "\t\t\"duration\": %lf,\n", duration);
-
-    fprintf(file, "\t\t\"status\": \"");
-    if (tdo_process_status_is_exit(status)) {
-        if (step[0] == 'f') {
-            fprintf(file, "complete");
-        } else {
-            fprintf(file, "exit");
-        }
-    } else if (tdo_process_status_is_signal(status)) {
-        fprintf(file, "signal");
-    } else if (tdo_process_status_is_stop(status)) {
-        fprintf(file, "stop");
-    }
-    fprintf(file, "\"");
-
-    if (tdo_process_status_is_exit(status) && step[0] != 'f') {
-        fprintf(file, ",\n\t\t\"exit\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_exit(status));
-    } else if (tdo_process_status_is_signal(status)) {
-        fprintf(file, ",\n\t\t\"signal\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_signal(status));
-    } else if (tdo_process_status_is_stop(status)) {
-        fprintf(file, ",\n\t\t\"stop\": " TDO_PROCESS_CODE_FORMAT, tdo_process_code_stop(status));
-    }
-
-    if (step[0] != 'f') {
-        fprintf(file, ",\n\t\t\"step\": \"");
-        tdo_json_escaped(file, (struct TdoString) { .length=strlen(step), .bytes=(char*)step });
-        fprintf(file, "\"");
-    }
-
-    tdo_log_dump(run->out, file, "stdout");
-    tdo_log_dump(run->err, file, "stderr");
-
-    fprintf(file, "\n\t}");
-}
-
 enum TdoError tdo_string_previous_line(struct TdoString *line, struct TdoString string, size_t index) {
     if (string.bytes == NULL || string.length == 0) return TDO_ERROR_EOF;
     if (string.bytes[index] != '\n') return TDO_ERROR_NEWLINE;
