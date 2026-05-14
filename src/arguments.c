@@ -34,7 +34,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
             }
         } else {
             // flag
-            if (strncmp(s, "-t", 3) == 0) {
+            if (strcmp(s, "-t") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing test argument to '-t'\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -43,9 +43,24 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     args->single_test = argv[0];
                 }
             } else if (strncmp(s, "-j", 2) == 0) {
+                char const *job_str = NULL;
+                if (strcmp(s, "-j") == 0) {
+                    if (argc <= 1) {
+                        fprintf(stderr, "Missing job argument to '-j'\n");
+                        result = TDO_ERROR_ARG_PARSE;
+                        argc -= 1; argv += 1;
+                        continue;
+                    } else {
+                        argc -= 1; argv += 1;
+                        job_str = argv[0];
+                    }
+                } else {
+                    job_str = s + 2;
+                }
+
                 errno = 0;
                 char *err;
-                unsigned long threads = strtoul(s + 2, &err, 10);
+                unsigned long threads = strtoul(job_str, &err, 10);
                 if (errno) {
                     perror("Could not parse amount of processes");
                     result = TDO_ERROR_ARG_PARSE;
@@ -61,7 +76,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 } else {
                     args->processes = (size_t) threads;
                 }
-            } else if (strncmp(s, "-o", 3) == 0) {
+            } else if (strcmp(s, "-o") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing output file argument to '-o'\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -69,9 +84,9 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->output = argv[0];
                 }
-            } else if (strncmp(s, "-f", 3) == 0) {
+            } else if (strcmp(s, "-f") == 0) {
                 args->overwrite = true;
-            } else if (strncmp(s, "--internal-status", 18) == 0) {
+            } else if (strcmp(s, "--internal-status") == 0) {
                 if (argc <= 1) {
                     fprintf(stderr, "Missing status file\n");
                     result = TDO_ERROR_ARG_PARSE;
@@ -79,9 +94,9 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     argc -= 1; argv += 1;
                     args->internal_status = argv[0];
                 }
-            } else if (strncmp(s, "--timeout", 10) == 0) {
+            } else if (strcmp(s, "--timeout") == 0) {
                 if (argc <= 1) {
-                    fprintf(stderr, "Missing timeout argument\n");
+                    fprintf(stderr, "Missing timeout argument to '--timeout'\n");
                     result = TDO_ERROR_ARG_PARSE;
                 } else {
                     argc -= 1; argv += 1;
@@ -91,13 +106,13 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                     char *err;
                     float timeout = strtof(timeout_str, &err);
                     if (errno) {
-                        perror("Could not parse amount of processes");
+                        perror("Could not parse timeout");
                         result = TDO_ERROR_ARG_PARSE;
                     } else if (*err != '\0') {
-                        fprintf(stderr, "Could not parse amount of threads: '%s'\n", timeout_str);
+                        fprintf(stderr, "Could not parse timeout: '%s'\n", timeout_str);
                         result = TDO_ERROR_ARG_PARSE;
                     } else if (timeout <= 0) {
-                        fprintf(stderr, "Amount of processes must be strictly positive, got %f\n", timeout);
+                        fprintf(stderr, "Timeout must be strictly positive, got %f\n", timeout);
                         result = TDO_ERROR_ARG_PARSE;
                     } else {
                         args->time_limit = timeout;
