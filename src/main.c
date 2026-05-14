@@ -110,6 +110,8 @@ int main(int argc, char **argv) {
             goto error_open_input;
         }
         file_name = args.test_file;
+
+        if (args.internal_status == NULL) fprintf(stderr, "Reading tests from input file '%s'\n", args.test_file);
     } else if (args.single_test) {
         if (args.internal_status == NULL) fprintf(stderr, "Reading test from command line\n");
         file_name = "<cmd>";
