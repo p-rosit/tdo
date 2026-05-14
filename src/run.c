@@ -100,13 +100,13 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
                 status->exit += 1;
                 status->any_failed = true;
                 log_output = true;
-                fprintf(file, "UNEXPECTED EXIT");
+                fprintf(file, "UNEXPECTED EXIT (" TDO_PROCESS_CODE_FORMAT ")\n", tdo_process_code_exit(process_status));
             }
         } else if (tdo_process_status_is_signal(process_status)) {
             status->signal += 1;
             status->any_failed = true;
             log_output = true;
-            fprintf(file, "SIGNAL");
+            fprintf(file, "SIGNAL (" TDO_PROCESS_CODE_FORMAT ")\n", tdo_process_code_signal(process_status));
         } else if (tdo_process_status_is_stop(process_status)) {
             fprintf(stderr, "When can this happen anyway?\n");
             fflush(NULL);
