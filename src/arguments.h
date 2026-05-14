@@ -27,6 +27,7 @@ struct TdoArguments {
     enum TdoFormat format;
     enum TdoVerbosity verbosity;
     bool overwrite;
+    bool stop_on_first_error;
 };
 
 enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **argv);

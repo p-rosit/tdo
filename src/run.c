@@ -79,6 +79,7 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
 
         if (timed_out) {
             status->timeout += 1;
+            status->any_failed = true;
             log_output = true;
             fprintf(file, "TIMEOUT");
         } else if (tdo_process_status_is_exit(process_status)) {
@@ -97,11 +98,13 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
                 }
             } else {
                 status->exit += 1;
+                status->any_failed = true;
                 log_output = true;
                 fprintf(file, "UNEXPECTED EXIT");
             }
         } else if (tdo_process_status_is_signal(process_status)) {
             status->signal += 1;
+            status->any_failed = true;
             log_output = true;
             fprintf(file, "SIGNAL");
         } else if (tdo_process_status_is_stop(process_status)) {
@@ -137,6 +140,7 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
         fprintf(file, "\t\t\"status\": \"");
         if (timed_out) {
             status->timeout += 1;
+            status->any_failed = true;
             fprintf(file, "timeout");
         } else if (tdo_process_status_is_exit(process_status)) {
             if (step[0] == 'f') {
@@ -144,10 +148,12 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
                 fprintf(file, "complete");
             } else {
                 status->exit += 1;
+                status->any_failed = true;
                 fprintf(file, "exit");
             }
         } else if (tdo_process_status_is_signal(process_status)) {
             status->signal += 1;
+            status->any_failed = true;
             fprintf(file, "signal");
         } else if (tdo_process_status_is_stop(process_status)) {
             fprintf(stderr, "When can this happen anyway?\n");
@@ -186,6 +192,7 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
 
 void tdo_run_report_error(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoTest test, FILE *file, char const *step, char const *error, double duration) {
     status->error += 1;
+    status->any_failed = true;
 
     if (args->format == TDO_FORMAT_HUMAN) {
         if (status->finished > 0) fprintf(file, "\n");
@@ -568,6 +575,10 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
                 status.finished += 1;
             }
         }
+
+        if (args.stop_on_first_error && status.any_failed) {
+            break;
+        }
     }
 
     if (args.format == TDO_FORMAT_HUMAN) {
@@ -586,7 +597,11 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
 
     char const *spacing = "    ";
 
-    fprintf(stderr, "Ran %zu tests in %.2lf seconds:\n", tests.length, tdo_time_between(time_end, time_start));
+    if (status.finished < tests.length) {
+        fprintf(stderr, "Stopped after running %zu/%zu tests in %.2lf seconds:\n", status.finished, tests.length, tdo_time_between(time_end, time_start));
+    } else {
+        fprintf(stderr, "Ran %zu tests in %.2lf seconds:\n", tests.length, tdo_time_between(time_end, time_start));
+    }
     fprintf(stderr, "%ssuccess: %3zu/%zu\n", spacing, status.success, tests.length);
 
     size_t total_fails = status.exit + status.timeout + status.signal + status.error;

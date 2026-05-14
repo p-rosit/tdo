@@ -79,6 +79,7 @@ struct TdoRunStatus {
     size_t success_in_a_row;
     bool fork_failed;
     bool log_setup_failed;
+    bool any_failed;
 };
 
 enum TdoError tdo_pipe_connect(struct TdoRun *run, struct TdoOverlap *overlap) {
@@ -532,6 +533,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .success_in_a_row = 0,
         .fork_failed = false,
         .log_setup_failed = false,
+        .any_failed = false,
     };
 
     status->runs = tdo_arena_alloc(arena, sizeof(struct TdoRun), args.processes);

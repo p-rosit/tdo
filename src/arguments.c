@@ -18,6 +18,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         .internal_status = NULL,
         .format = TDO_FORMAT_HUMAN,
         .verbosity = TDO_VERBOSITY_NONE,
+        .stop_on_first_error = false,
     };
 
     if (argc < 1) return TDO_ERROR_ARG_FIRST;
@@ -141,6 +142,8 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 args->verbosity = TDO_VERBOSITY_MINOR;
             } else if (strcmp(s, "-vv") == 0) {
                 args->verbosity = TDO_VERBOSITY_MAJOR;
+            } else if (strcmp(s, "-x") == 0) {
+                args->stop_on_first_error = true;
             } else {
                 fprintf(stderr, "Unrecognized argument: '%s'\n", s);
                 result = TDO_ERROR_ARG_PARSE;

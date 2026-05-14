@@ -37,6 +37,7 @@ static const char *tdo_help_text =
     "Options:\n"
     "  -t \"TEST_DEFINITION\"  Run a single test definition string directly.\n"
     "  -j [N]                Run tests in parallel using N processes (default: 1).\n"
+    "  -x                    Stop execution immediately on the first test failure.\n"
     "  --format FMT          Select output format: 'human' or 'json' (default: human).\n"
     "  -v, -vv               Set output verbosity level:\n"
     "                          -v:  Minor verbosity\n"
