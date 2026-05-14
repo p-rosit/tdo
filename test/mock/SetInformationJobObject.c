@@ -13,7 +13,7 @@ BOOL __stdcall tdo_mock_SetInformationJobObject(HANDLE hJob, JOBOBJECTINFOCLASS 
         return SetInformationJobObject(hJob, JobObjectInformationClass, lpJobObjectInformation, cbJobObjectInformationLength);
     }
     SetLastError(ERROR_ACCESS_DENIED); // pretend error
-    return NULL;
+    return FALSE;
 }
 
 int tdo_runner_main(int argc, char **argv);
