@@ -11,6 +11,12 @@ enum TdoFormat {
     TDO_FORMAT_JSON,
 };
 
+enum TdoVerbosity {
+    TDO_VERBOSITY_NONE,
+    TDO_VERBOSITY_MINOR,
+    TDO_VERBOSITY_MAJOR,
+};
+
 struct TdoArguments {
     size_t processes;
     float time_limit;
@@ -19,6 +25,7 @@ struct TdoArguments {
     char const *output;
     char const *internal_status;
     enum TdoFormat format;
+    enum TdoVerbosity verbosity;
     bool overwrite;
 };
 

@@ -71,7 +71,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
 void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus process_status, double duration, bool timed_out) {
     if (args->format == TDO_FORMAT_HUMAN) {
         bool log_output = false;
-        if (!tdo_process_status_is_exit(process_status) || step[0] != 'f') {
+        if (!tdo_process_status_is_exit(process_status) || step[0] != 'f' || args->verbosity > TDO_VERBOSITY_NONE) {
             status->success_in_a_row = 0;
             if (status->finished > 0) fprintf(file, "\n");
             fprintf(file, "%s::%s ", run->test->symbol.file->name.bytes, run->test->symbol.name.bytes);
@@ -83,13 +83,18 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
             fprintf(file, "TIMEOUT");
         } else if (tdo_process_status_is_exit(process_status)) {
             if (step[0] == 'f') {
-                if (status->finished > 0 && status->success_in_a_row == 0) fprintf(file, "\n");
+                if (status->finished > 0 && status->success_in_a_row == 0 && args->verbosity == TDO_VERBOSITY_NONE) fprintf(file, "\n");
 
                 status->success += 1;
                 status->success_in_a_row += 1;
 
-                fprintf(file, ".");
-                if (status->success_in_a_row % 80 == 0) fprintf(file, "\n");
+                if (args->verbosity == TDO_VERBOSITY_NONE) {
+                    fprintf(file, ".");
+                    if (status->success_in_a_row % 80 == 0) fprintf(file, "\n");
+                } else {
+                    fprintf(file, "SUCCESS");
+                    if (args->verbosity == TDO_VERBOSITY_MAJOR) fprintf(file, "\n");
+                }
             } else {
                 status->exit += 1;
                 log_output = true;
@@ -106,7 +111,7 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
             fprintf(file, "STOPPED\n");
         }
 
-        if (log_output) {
+        if (log_output || args->verbosity == TDO_VERBOSITY_MAJOR) {
             fprintf(file, "Captured stdout ----------------------------------------------------------------\n");
             tdo_human_escaped(file, run->out.data);
             fprintf(file, "Captured stderr ----------------------------------------------------------------\n");
