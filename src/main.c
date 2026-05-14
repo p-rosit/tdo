@@ -18,9 +18,51 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
+
+static const char *tdo_help_text =
+    "Usage: tdo [OPTIONS] [TEST_FILE]\n"
+    "       tdo [OPTIONS] -t \"TEST_DEFINITION\"\n"
+    "       cat tests.txt | tdo [OPTIONS]\n"
+    "\n"
+    "A C99 test runner that executes tests defined by shared library symbols.\n"
+    "Every test is executed in a separate process which ensures that they do not\n"
+    "interact.\n"
+    "\n"
+    "Arguments:\n"
+    "  TEST_FILE             Path to a file containing test definitions. If omitted \n"
+    "                        and no -t flag is provided, definitions are read \n"
+    "                        from standard input (stdin).\n"
+    "\n"
+    "Options:\n"
+    "  -t \"TEST_DEFINITION\"  Run a single test definition string directly.\n"
+    "  -j [N]                Run tests in parallel using N processes (default: 1).\n"
+    "  -o FILE               Write results to the specified FILE.\n"
+    "  -f                    Force overwrite the output file if it already exists.\n"
+    "  --timeout SECONDS     Set a maximum execution time per test (default: 5.0).\n"
+    "  -h, --help            Display this help message and exit.\n"
+    "\n"
+    "Test Definition Format:\n"
+    "  Definitions follow a \"test-first\" structure:\n"
+    "    test::PATH::SYMBOL [before::PATH::SYMBOL] [after::PATH::SYMBOL] ...\n"
+    "\n"
+    "  - PATH:   The path to the shared library (e.g., .so, .dll, or .dylib).\n"
+    "  - SYMBOL: The name of the exported function to execute.\n"
+    "\n"
+    "  Definitions can include any number of 'before' and 'after' hooks.\n"
+    "  Example:\n"
+    "    test::./lib.so::test_math before::./lib.so::setup after::./lib.so::clean\n"
+;
 
 int main(int argc, char **argv) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            fprintf(stderr, "%s", tdo_help_text);
+            return TDO_ERROR_OK;
+        }
+    }
 
     struct TdoArguments args;
     result = tdo_arguments_parse(&args, argc, argv);
