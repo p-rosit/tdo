@@ -425,7 +425,7 @@ void tdo_run_single(struct TdoTest *test, struct TdoArena *arena, FILE *status) 
 enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoArena *arena, struct TdoArray tests) {
     enum TdoError result = TDO_ERROR_UNKNOWN;
     struct TdoArenaState state = tdo_arena_state_get(arena);
-    fprintf(stderr, "Running %zu tests\n", tests.length);
+    if (args.internal_status == NULL) fprintf(stderr, "Running %zu tests\n", tests.length);
 
     struct TdoRunStatus status;
     result = tdo_run_status_init(&status, arena, args);
