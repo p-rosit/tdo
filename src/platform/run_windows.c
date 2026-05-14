@@ -29,6 +29,7 @@ struct TdoRun {
     struct TdoString err_name;
     struct TdoString status_name;
     bool timed_out;
+    bool read_too_much;
     bool active;
     struct TdoOverlap out_ov;
     struct TdoOverlap err_ov;
@@ -257,6 +258,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     CloseHandle(pi.hThread);
 
     run->timed_out = false;
+    run->read_too_much = false;
     run->active = true;
     run->start_time = start_time;
     run->pid = pi.dwProcessId;
@@ -295,7 +297,11 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
     double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
 
     if (status->finished > 0) fprintf(output, ",");
-    tdo_run_report_status(run, arena, output, run->exit_code, duration, run->timed_out);
+    if (run->read_too_much) {
+        tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
+    } else {
+        tdo_run_report_status(run, arena, output, run->exit_code, duration, run->timed_out);
+    }
 
     run->active = false;
     status->running -= 1;
@@ -394,38 +400,29 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 if (bytes_transferred > 0) {
                     enum TdoError err = tdo_log_append(log, arena, bytes_transferred, ov->buffer);
                     if (err != TDO_ERROR_OK) {
-                        run->active = false;
-                        status->running -= 1;
-
                         LARGE_INTEGER end_time = tdo_time_get();
                         double duration = (double)(end_time.QuadPart - run->start_time.QuadPart) / status->clock_frequency.QuadPart;
 
-                        if (status->finished > 0) fprintf(output, ",");
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output, ran out of memory", duration);
-                        status->finished += 1;
-
+                        run->read_too_much = true;
                         TerminateProcess(run->process_handle, 1); // test produced more logs than we can read, why let it continue?
-                        CloseHandle(run->process_handle);
-                        run->active = false;
-                        run->process_handle = NULL;
 
                         if (log != &run->out) {
                             CancelIoEx(run->out.fd, (LPOVERLAPPED) &run->out_ov);
                             run->out_ov.status = TDO_PIPE_CANCELLING;
                         } else {
-                            run->out_ov.status = TDO_PIPE_IDLE;
+                            tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
                         }
                         if (log != &run->err) {
                             CancelIoEx(run->err.fd, (LPOVERLAPPED) &run->err_ov);
                             run->err_ov.status = TDO_PIPE_CANCELLING;
                         } else {
-                            run->err_ov.status = TDO_PIPE_IDLE;
+                            tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
                         }
                         if (log != &run->status) {
                             CancelIoEx(run->status.fd, (LPOVERLAPPED) &run->status_ov);
                             run->status_ov.status = TDO_PIPE_CANCELLING;
                         } else {
-                            run->status_ov.status = TDO_PIPE_IDLE;
+                            tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
                         }
                         return;
                     }

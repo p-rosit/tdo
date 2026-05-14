@@ -283,6 +283,9 @@ class MockRunner:
         if func.override_main:
             macros.append(Macro(name='main', value='tdo_runner_main'))
 
+        names = set(os.path.split(path)[1] for path in self.source_paths)
+        assert func.defined_in is None or func.defined_in in names, f'Mocking function expected to be defined in "{func.file}" but no such source file exists'
+
         object_paths = []
         for path in self.source_paths:
             _, name = os.path.split(path)
@@ -290,17 +293,21 @@ class MockRunner:
             object_path = os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{pathlib.Path(name).with_suffix("")}.obj')
             object_paths.append(object_path)
 
+            if func.defined_in != name:
+                m = macros
+            else:
+                m = []
+
             compile(self.temp_directory, CompilerCommand(
                 compiler=self.compiler,
                 output=object_path,
                 optimization=self.optimization,
                 files=[path],
                 result=Executable.object,
-                macros=[Macro(name='TDO_BUILD_TEST'), *(macros or [])],
+                macros=[Macro(name='TDO_BUILD_TEST'), *m],
             ))
 
-        identifier = hash((tuple(func.names), func.file, func.defined_in, func.override_main))
-        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_{identifier}'))
+        compiled_path = executable(os.path.join(self.temp_directory, f'{self.compiler}_{self.optimization.name}_{self.name}_mock_{"_".join(func.names)}'))
 
         compile(self.temp_directory, CompilerCommand(
             compiler=self.compiler,
@@ -482,6 +489,7 @@ def run_tests(runner: Runner):
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
+            assert p.returncode != 0, f'Successful run returned malformed json: "{out}"'
             return ErrorCode(code=p.returncode), err
 
         result = []
