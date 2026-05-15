@@ -6,6 +6,11 @@
 
 #define TDO_PROCESS_MAX ((size_t) 2048)
 
+enum TdoFormat {
+    TDO_FORMAT_HUMAN,
+    TDO_FORMAT_JSON,
+};
+
 struct TdoArguments {
     size_t processes;
     float time_limit;
@@ -13,6 +18,7 @@ struct TdoArguments {
     char const *test_file;
     char const *output;
     char const *internal_status;
+    enum TdoFormat format;
     bool overwrite;
 };
 

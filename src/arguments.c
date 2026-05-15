@@ -16,6 +16,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         .output = NULL,
         .overwrite = false,
         .internal_status = NULL,
+        .format = TDO_FORMAT_HUMAN,
     };
 
     if (argc < 1) return TDO_ERROR_ARG_FIRST;
@@ -116,6 +117,23 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                         result = TDO_ERROR_ARG_PARSE;
                     } else {
                         args->time_limit = timeout;
+                    }
+                }
+            } else if (strcmp(s, "--format") == 0) {
+                if (argc <= 1) {
+                    fprintf(stderr, "Missing argument to '--format'\n");
+                    result = TDO_ERROR_ARG_PARSE;
+                } else {
+                    argc -= 1; argv += 1;
+                    char const *format_str = argv[0];
+
+                    if (strcmp(format_str, "human") == 0) {
+                        args->format = TDO_FORMAT_HUMAN;
+                    } else if (strcmp(format_str, "json") == 0) {
+                        args->format = TDO_FORMAT_JSON;
+                    } else {
+                        fprintf(stderr, "Unknown format argument '%s', see '-h' for options\n", format_str);
+                        result = TDO_ERROR_ARG_PARSE;
                     }
                 }
             } else {

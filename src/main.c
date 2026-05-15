@@ -37,6 +37,7 @@ static const char *tdo_help_text =
     "Options:\n"
     "  -t \"TEST_DEFINITION\"  Run a single test definition string directly.\n"
     "  -j [N]                Run tests in parallel using N processes (default: 1).\n"
+    "  --format FMT          Select output format: 'human' or 'json' (default: human).\n"
     "  -o FILE               Write results to the specified FILE.\n"
     "  -f                    Force overwrite the output file if it already exists.\n"
     "  --timeout SECONDS     Set a maximum execution time per test (default: 5.0).\n"

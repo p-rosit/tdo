@@ -76,6 +76,7 @@ struct TdoRunStatus {
     size_t timeout;
     size_t signal;
     size_t error;
+    size_t success_in_a_row;
     bool fork_failed;
     bool log_setup_failed;
 };
@@ -294,17 +295,16 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     return;
 }
 
-void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output) {
+void tdo_run_maybe_report_exit(struct TdoArguments *args, struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output) {
     if (run->process_handle != NULL || tdo_run_pipes_pending(run) > 0 || tdo_run_pipes_cancelling(run)) return;
 
     LARGE_INTEGER end_time = tdo_time_get();
     double duration = tdo_time_between(end_time, run->start_time);
 
-    if (status->finished > 0) fprintf(output, ",");
     if (run->read_too_much) {
-        tdo_run_report_error(status, *run->test, output, NULL, "could not allocate space for output", duration);
+        tdo_run_report_error(args, status, *run->test, output, NULL, "could not allocate space for output", duration);
     } else {
-        tdo_run_report_status(status, run, arena, output, run->exit_code, duration, run->timed_out);
+        tdo_run_report_status(args, status, run, arena, output, run->exit_code, duration, run->timed_out);
     }
 
     run->active = false;
@@ -312,7 +312,7 @@ void tdo_run_maybe_report_exit(struct TdoArena *arena, struct TdoRun *run, struc
     status->finished += 1;
 }
 
-void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output, DWORD pid, DWORD msg) {
+void tdo_run_handle_exit(struct TdoArguments *args, struct TdoArena *arena, struct TdoRun *run, struct TdoRunStatus *status, FILE *output, DWORD pid, DWORD msg) {
     if (msg != JOB_OBJECT_MSG_END_OF_PROCESS_TIME && msg != JOB_OBJECT_MSG_EXIT_PROCESS) return;
 
     if (run == NULL) {
@@ -339,7 +339,7 @@ void tdo_run_handle_exit(struct TdoArena *arena, struct TdoRun *run, struct TdoR
     CloseHandle(run->process_handle);
     run->process_handle = NULL;
     run->exit_code = return_status;
-    tdo_run_maybe_report_exit(arena, run, status, output);
+    tdo_run_maybe_report_exit(args, arena, run, status, output);
 }
 
 void tdo_run_handle_pipe_disconnect(struct TdoArena *arena, struct TdoRun *run, struct TdoLog *log, struct TdoOverlap *overlap, struct TdoRunStatus *status, FILE *output) {
@@ -365,7 +365,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                     break;
                 }
             }
-            tdo_run_handle_exit(arena, run, status, output, pid, bytes_transferred);
+            tdo_run_handle_exit(&args, arena, run, status, output, pid, bytes_transferred);
             return;
         }
 
@@ -392,7 +392,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                         // next read started
                     } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                         tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
-                        tdo_run_maybe_report_exit(arena, run, status, output);
+                        tdo_run_maybe_report_exit(&args, arena, run, status, output);
                     } else {
                         fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                         fflush(NULL);
@@ -437,7 +437,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                             // next read started
                         } else if (code == ERROR_BROKEN_PIPE || code == ERROR_PIPE_NOT_CONNECTED) {
                             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
-                            tdo_run_maybe_report_exit(arena, run, status, output);
+                            tdo_run_maybe_report_exit(&args, arena, run, status, output);
                         } else {
                             fprintf(stderr, "async ReadFile Failed: %lu\n", code);
                             fflush(NULL);
@@ -447,7 +447,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
                 } else {
                     // no bytes transferred, pipe closed
                     tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
-                    tdo_run_maybe_report_exit(arena, run, status, output);
+                    tdo_run_maybe_report_exit(&args, arena, run, status, output);
                 }
                 break;
             case TDO_PIPE_IDLE: fprintf(stderr, "Idle pipe received completion packet\n"); fflush(NULL); abort();
@@ -478,7 +478,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
             int s = ov->status;
             tdo_run_handle_pipe_disconnect(arena, run, log, ov, status, output);
             if (s != TDO_PIPE_CANCELLING) {
-                tdo_run_maybe_report_exit(arena, run, status, output);
+                tdo_run_maybe_report_exit(&args, arena, run, status, output);
             }
         } else {
             fprintf(stderr, "Read from pipe failed: %lu\n", GetLastError());
@@ -529,6 +529,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .timeout = 0,
         .signal = 0,
         .error = 0,
+        .success_in_a_row = 0,
         .fork_failed = false,
         .log_setup_failed = false,
     };
