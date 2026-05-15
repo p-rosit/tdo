@@ -17,6 +17,13 @@ TdoMonotoneTime tdo_time_get(void) {
     return time;
 }
 
+double tdo_time_between(TdoMonotoneTime end, TdoMonotoneTime start) {
+    return (
+        (double)(end.tv_sec - start.tv_sec)
+        + (double)(end.tv_nsec - start.tv_nsec) * 1e-9
+    );
+}
+
 FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
     int open_flags = O_WRONLY | O_CREAT;
     if (!overwrite) open_flags |= O_EXCL;

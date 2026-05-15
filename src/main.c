@@ -37,6 +37,12 @@ static const char *tdo_help_text =
     "Options:\n"
     "  -t \"TEST_DEFINITION\"  Run a single test definition string directly.\n"
     "  -j [N]                Run tests in parallel using N processes (default: 1).\n"
+    "  -x                    Stop execution immediately on the first test failure.\n"
+    "  --format FMT          Select output format: 'human' or 'json' (default: human).\n"
+    "  -v, -vv               Set output verbosity level:\n"
+    "                          -v:  Minor verbosity\n"
+    "                          -vv: Major verbosity\n"
+    "                        Note: Verbosity only applies to 'human' format.\n"
     "  -o FILE               Write results to the specified FILE.\n"
     "  -f                    Force overwrite the output file if it already exists.\n"
     "  --timeout SECONDS     Set a maximum execution time per test (default: 5.0).\n"
@@ -110,6 +116,8 @@ int main(int argc, char **argv) {
             goto error_open_input;
         }
         file_name = args.test_file;
+
+        if (args.internal_status == NULL) fprintf(stderr, "Reading tests from input file '%s'\n", args.test_file);
     } else if (args.single_test) {
         if (args.internal_status == NULL) fprintf(stderr, "Reading test from command line\n");
         file_name = "<cmd>";

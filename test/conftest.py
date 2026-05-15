@@ -477,7 +477,7 @@ def strip_asan_noise(text: str) -> str:
 def run_tests(runner: Runner):
     def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
         p = subprocess.Popen(
-            [executable or runner(), *[str(a) for a in args or []]],
+            [executable or runner(), '--format', 'json', *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

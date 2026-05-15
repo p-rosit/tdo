@@ -16,6 +16,9 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
         .output = NULL,
         .overwrite = false,
         .internal_status = NULL,
+        .format = TDO_FORMAT_HUMAN,
+        .verbosity = TDO_VERBOSITY_NONE,
+        .stop_on_first_error = false,
     };
 
     if (argc < 1) return TDO_ERROR_ARG_FIRST;
@@ -46,7 +49,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 char const *job_str = NULL;
                 if (strcmp(s, "-j") == 0) {
                     if (argc <= 1) {
-                        fprintf(stderr, "Missing job argument to '-j'\n");
+                        fprintf(stderr, "Missing argument to '-j'\n");
                         result = TDO_ERROR_ARG_PARSE;
                         argc -= 1; argv += 1;
                         continue;
@@ -96,7 +99,7 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                 }
             } else if (strcmp(s, "--timeout") == 0) {
                 if (argc <= 1) {
-                    fprintf(stderr, "Missing timeout argument to '--timeout'\n");
+                    fprintf(stderr, "Missing argument to '--timeout'\n");
                     result = TDO_ERROR_ARG_PARSE;
                 } else {
                     argc -= 1; argv += 1;
@@ -118,6 +121,29 @@ enum TdoError tdo_arguments_parse(struct TdoArguments *args, int argc, char **ar
                         args->time_limit = timeout;
                     }
                 }
+            } else if (strcmp(s, "--format") == 0) {
+                if (argc <= 1) {
+                    fprintf(stderr, "Missing argument to '--format'\n");
+                    result = TDO_ERROR_ARG_PARSE;
+                } else {
+                    argc -= 1; argv += 1;
+                    char const *format_str = argv[0];
+
+                    if (strcmp(format_str, "human") == 0) {
+                        args->format = TDO_FORMAT_HUMAN;
+                    } else if (strcmp(format_str, "json") == 0) {
+                        args->format = TDO_FORMAT_JSON;
+                    } else {
+                        fprintf(stderr, "Unknown format argument '%s', see '-h' for options\n", format_str);
+                        result = TDO_ERROR_ARG_PARSE;
+                    }
+                }
+            } else if (strcmp(s, "-v") == 0) {
+                args->verbosity = TDO_VERBOSITY_MINOR;
+            } else if (strcmp(s, "-vv") == 0) {
+                args->verbosity = TDO_VERBOSITY_MAJOR;
+            } else if (strcmp(s, "-x") == 0) {
+                args->stop_on_first_error = true;
             } else {
                 fprintf(stderr, "Unrecognized argument: '%s'\n", s);
                 result = TDO_ERROR_ARG_PARSE;

@@ -38,8 +38,15 @@ struct TdoRunStatus {
     size_t started;
     size_t finished;
     size_t running;
+    size_t success;
+    size_t exit;
+    size_t timeout;
+    size_t signal;
+    size_t error;
+    size_t success_in_a_row;
     bool fork_failed;
     bool log_setup_failed;
+    bool any_failed;
 };
 
 enum TdoError tdo_log_drain(struct TdoLog *log, struct TdoArena *arena) {
@@ -172,7 +179,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
     status->running += 1;
 }
 
-void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct TdoArena *arena, FILE *output) {
+void tdo_run_poll_exit(struct TdoArguments *args, struct TdoRun *run, struct TdoRunStatus *status, struct TdoArena *arena, FILE *output) {
     int return_status;
     if (waitpid(run->pid, &return_status, WNOHANG) > 0) {
         enum TdoError out_err = tdo_log_drain(&run->out, arena);
@@ -180,19 +187,14 @@ void tdo_run_poll_exit(struct TdoRun *run, struct TdoRunStatus *status, struct T
         enum TdoError status_err = tdo_log_drain(&run->status, arena);
 
         struct timespec end_time = tdo_time_get();
+        double duration = tdo_time_between(end_time, run->start_time);
 
-        double duration = (
-            (double)(end_time.tv_sec - run->start_time.tv_sec)
-            + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-        );
-
-        if (status->finished > 0) fprintf(output, ",");
         if (out_err == TDO_ERROR_OK && err_err == TDO_ERROR_OK && status_err == TDO_ERROR_OK)  {
-            tdo_run_report_status(run, arena, output, return_status, duration, false);
+            tdo_run_report_status(args, status, run, arena, output, return_status, duration, false);
         } else if (out_err == TDO_ERROR_MEMORY || err_err == TDO_ERROR_MEMORY || status_err == TDO_ERROR_MEMORY) {
-            tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
+            tdo_run_report_error(args, status, *run->test, output, NULL, "could not allocate space for output", duration);
         } else {
-            tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+            tdo_run_report_error(args, status, *run->test, output, NULL, "could not read output", duration);
         }
 
         run->active = false;
@@ -225,16 +227,12 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
 
                 if (err != TDO_ERROR_OK) {
                     TdoMonotoneTime end_time = tdo_time_get();
-                    double duration = (
-                        (double)(end_time.tv_sec - run->start_time.tv_sec)
-                        + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                    );
+                    double duration = tdo_time_between(end_time, run->start_time);
 
-                    if (status->finished > 0) fprintf(output, ",");
                     if (err == TDO_ERROR_MEMORY) {
-                        tdo_run_report_error(*run->test, output, NULL, "could not allocate space for output", duration);
+                        tdo_run_report_error(&args, status, *run->test, output, NULL, "could not allocate space for output", duration);
                     } else {
-                        tdo_run_report_error(*run->test, output, NULL, "could not read output", duration);
+                        tdo_run_report_error(&args, status, *run->test, output, NULL, "could not read output", duration);
                     }
 
                     kill(run->pid, SIGKILL);
@@ -255,11 +253,8 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         for (size_t i = 0; i < args.processes; i++) {
             struct TdoRun *run = &status->runs[i];
             if (run->active) {
-                double duration = (
-                    (double)(end_time.tv_sec - run->start_time.tv_sec)
-                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                );
-                tdo_run_report_error(*run->test, output, NULL, "could not poll pipes", duration);
+                double duration = tdo_time_between(end_time, run->start_time);
+                tdo_run_report_error(&args, status, *run->test, output, NULL, "could not poll pipes", duration);
                 status->finished += 1;
                 run->active = false;
             }
@@ -267,8 +262,7 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
 
         struct TdoTest *ts = tests.data;
         for (size_t i = status->started; i < tests.length; i++) {
-            if (status->finished > 0) fprintf(output, ",");
-            tdo_run_report_error(ts[i], output, NULL, "could not poll pipes", -1.0);
+            tdo_run_report_error(&args, status, ts[i], output, NULL, "could not poll pipes", -1.0);
             status->finished += 1;
         }
     }
@@ -278,16 +272,12 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
     for (size_t i = 0; i < args.processes; i++) {
         struct TdoRun *run = &status->runs[i];
         if (run->active) {
-            tdo_run_poll_exit(run, status, arena, output);
+            tdo_run_poll_exit(&args, run, status, arena, output);
             if (run->active) {
-                double duration = (
-                    (double)(end_time.tv_sec - run->start_time.tv_sec)
-                    + (double)(end_time.tv_nsec - run->start_time.tv_nsec) * 1e-9
-                );
+                double duration = tdo_time_between(end_time, run->start_time);
                 if (duration > args.time_limit) {
                     // timeout
-                    if (status->finished > 0) fprintf(output, ",");
-                    tdo_run_report_status(run, arena, output, 0, duration, true);
+                    tdo_run_report_status(&args, status, run, arena, output, 0, duration, true);
 
                     kill(run->pid, SIGKILL);
                     run->active = false;
@@ -313,8 +303,15 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .started = 0,
         .finished = 0,
         .running = 0,
+        .success = 0,
+        .exit = 0,
+        .timeout = 0,
+        .signal = 0,
+        .error = 0,
+        .success_in_a_row = 0,
         .fork_failed = false,
         .log_setup_failed = false,
+        .any_failed = false,
     };
 
     status->runs = tdo_arena_alloc(arena, sizeof(struct TdoRun), args.processes);

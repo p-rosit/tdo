@@ -11,6 +11,12 @@ TdoMonotoneTime tdo_time_get(void) {
     return time;
 }
 
+double tdo_time_between(TdoMonotoneTime end, TdoMonotoneTime start) {
+    LARGE_INTEGER freq = { .QuadPart = 1 };
+    QueryPerformanceFrequency(&freq);
+    return (double)(end.QuadPart - start.QuadPart) / freq.QuadPart;
+}
+
 FILE *tdo_file_open_exclusive(char const *path, bool overwrite) {
     HANDLE hFile = CreateFile(
         path,

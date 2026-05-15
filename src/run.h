@@ -1,9 +1,11 @@
 #ifndef TDO_RUN_H
 #define TDO_RUN_H
 #include "test.h"
+#include "arguments.h"
 #include <stdio.h>
 
 struct TdoRun;
+struct TdoRunStatus;
 
 void tdo_json_escaped(FILE *file, struct TdoString string);
 void tdo_log_dump(struct TdoLog log, FILE *file, char const *name);
@@ -12,9 +14,9 @@ enum TdoError tdo_parse_size_t(size_t *number, char const *string);
 
 enum TdoError tdo_run_report_assemble_step(struct TdoString *step, struct TdoArena *arena, struct TdoString step_name, struct TdoSymbol symbol);
 
-void tdo_run_report_status(struct TdoRun *run, struct TdoArena *arena, FILE *file, int status, double duration, bool timed_out);
-void tdo_run_report_exit(struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus status, double duration, bool timed_out);
-void tdo_run_report_error(struct TdoTest test, FILE *file, char const *step, char const *error, double duration);
+void tdo_run_report_status(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoRun *run, struct TdoArena *arena, FILE *file, TdoProcessStatus process_status, double duration, bool timed_out);
+void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus process_status, double duration, bool timed_out);
+void tdo_run_report_error(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoTest test, FILE *file, char const *step, char const *error, double duration);
 void tdo_status_error(FILE *file, char const *fmt, ...);
 
 void tdo_assert_library_loaded(struct TdoFile *file, FILE *status);
