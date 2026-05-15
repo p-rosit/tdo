@@ -56,4 +56,14 @@ TdoProcessCode tdo_process_code_exit(TdoProcessStatus status);
 TdoProcessCode tdo_process_code_signal(TdoProcessStatus status);
 TdoProcessCode tdo_process_code_stop(TdoProcessStatus status);
 
+enum TdoColour {
+    TDO_COLOUR_WHITE,
+    TDO_COLOUR_GREY,
+    TDO_COLOUR_GREEN,
+    TDO_COLOUR_BLUE,
+    TDO_COLOUR_RED,
+};
+
+int tdo_colour_fprintf(FILE *file, enum TdoColour colour, char const *format, ...);
+
 #endif
