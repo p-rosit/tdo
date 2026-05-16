@@ -471,7 +471,7 @@ class RunTests:
 
     def execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
         p = subprocess.Popen(
-            [executable or self.runner(), '--format', 'json', *[str(a) for a in args or []]],
+            [executable or self.runner(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -481,14 +481,14 @@ class RunTests:
         out, err = p.communicate(input=tests)
         return ErrorCode(p.returncode), out, err
 
-    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
-        code, out, err = self.execute(tests, executable=executable, args=args)
+    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Optional[List[Result]], str]:
+        code, out, err = self.execute(tests, executable=executable, args=['--format', 'json', *(args or [])])
 
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
             assert code.code != 0, f'Successful run returned malformed json: "{out}"'
-            return code, err
+            return code, None, err
 
         result = []
         for r in raw_result:
@@ -526,7 +526,7 @@ class RunTests:
 
             result.append(c)
 
-        return result, err
+        return code, result, err
 
     def args(self, executable: str, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Dict[str, Any], str]:
         code, out, err = self.execute('', executable=executable, args=args)

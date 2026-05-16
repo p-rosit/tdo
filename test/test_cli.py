@@ -11,7 +11,7 @@ def test_default(mock_runner: MockRunner, run_tests: RunTests):
         'single_test': None,
         'test_file': None,
         'output': None,
-        'format': 'json',
+        'format': 'human',
         'verbosity': 'none',
         'overwrite': False,
         'stop_on_first_error': False,
@@ -21,12 +21,12 @@ def test_default(mock_runner: MockRunner, run_tests: RunTests):
     assert code == ErrorCode(code=Error.ok)
 
 
-def test_help(runner: Runner, run_tests: RunTests):
-    code, _, err = run_tests.args(runner(), args=['-h'])
+def test_help(run_tests: RunTests):
+    code, _, err = run_tests.execute('', args=['-h'])
     assert err.startswith('Usage: tdo')
     assert code == ErrorCode(code=Error.ok)
 
-    code, _, err = run_tests.args(runner(), args=['--help'])
+    code, _, err = run_tests.args('', args=['--help'])
     assert err.startswith('Usage: tdo')
     assert code == ErrorCode(code=Error.ok)
 
