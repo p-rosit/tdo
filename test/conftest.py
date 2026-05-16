@@ -502,7 +502,13 @@ class RunTests:
 
     def args(self, executable: str, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Dict[str, Any], str]:
         code, out, err = self.function('', executable=executable, args=args, raw=True)
-        return code, json.loads(out), err
+
+        try:
+            a = json.loads(out)
+        except json.JSONDecodeError:
+            a: Dict[str, Any] = {}
+
+        return code, a, err
 
 
 def strip_asan_noise(text: str) -> str:
