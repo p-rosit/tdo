@@ -450,12 +450,40 @@ class ErrorCode:
             self.code = self.code.value
 
 
+def strip_asan_noise(text: str) -> str:
+    """
+    Removes ASan / interception_win warnings from stderr.
+    Example noise: ==2544==interception_win: unhandled instruction...
+    """
+    if not text:
+        return ""
+
+    # Matches lines starting with ==digits== followed by interception_win or asan
+    # and removes the entire line including the trailing newline.
+    pattern = r"==\d+==(?:interception_win|asan|AddressSanitizer):.*?\n"
+
+    return re.sub(pattern, "", text, flags=re.IGNORECASE)
+
+
 class RunTests:
-    def __init__(self, function: Callable):
-        self.function = function
+    def __init__(self, runner: Runner):
+        self.runner = runner
+
+    def execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
+        p = subprocess.Popen(
+            [executable or self.runner(), '--format', 'json', *[str(a) for a in args or []]],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            text=True,
+        )
+        out, err = p.communicate(input=tests)
+        return ErrorCode(p.returncode), out, err
 
     def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
-        code, out, err = self.function(tests, executable=executable, args=args, raw=False)
+        code, out, err = self.execute(tests, executable=executable, args=args)
+
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
@@ -501,7 +529,7 @@ class RunTests:
         return result, err
 
     def args(self, executable: str, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Dict[str, Any], str]:
-        code, out, err = self.function('', executable=executable, args=args, raw=True)
+        code, out, err = self.execute('', executable=executable, args=args)
 
         try:
             a = json.loads(out)
@@ -511,36 +539,9 @@ class RunTests:
         return code, a, err
 
 
-def strip_asan_noise(text: str) -> str:
-    """
-    Removes ASan / interception_win warnings from stderr.
-    Example noise: ==2544==interception_win: unhandled instruction...
-    """
-    if not text:
-        return ""
-
-    # Matches lines starting with ==digits== followed by interception_win or asan
-    # and removes the entire line including the trailing newline.
-    pattern = r"==\d+==(?:interception_win|asan|AddressSanitizer):.*?\n"
-
-    return re.sub(pattern, "", text, flags=re.IGNORECASE)
-
-
 @pytest.fixture
 def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None, raw: bool = False):
-        p = subprocess.Popen(
-            [executable or runner(), '--format', 'json', *[str(a) for a in args or []]],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-            text=True,
-        )
-        out, err = p.communicate(input=tests)
-        return ErrorCode(code=p.returncode), out, err
-
-    return RunTests(run)
+    return RunTests(runner)
 
 
 @pytest.fixture(scope='session')
