@@ -35,6 +35,7 @@ struct TdoRunStatus {
     struct TdoRun *runs;
     struct pollfd *fds;
     size_t *fd_to_idx;
+    size_t total;
     size_t started;
     size_t finished;
     size_t running;
