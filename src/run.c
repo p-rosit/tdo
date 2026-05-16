@@ -68,58 +68,86 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
     fprintf(file, "\"");
 }
 
+void tdo_run_print_progress(FILE *file, struct TdoRunStatus *status) {
+    bool warning = status->error > 0 || status->timeout > 0;
+    bool error = status->signal > 0 || status->exit > 0;
+
+    if (!warning && !error) {
+        fprintf(file, "[%3.0lf%%] ", 100.0 * (double) status->finished / (double) status->total);
+    } else if (warning && !error) {
+        tdo_colour_fprintf(file, TDO_COLOUR_BLUE, "[%3.0lf%%] ", 100.0 * (double) status->finished / (double) status->total);
+    } else {
+        tdo_colour_fprintf(file, TDO_COLOUR_RED, "[%3.0lf%%] ", 100.0 * (double) status->finished / (double) status->total);
+    }
+}
+
 void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status, struct TdoRun *run, FILE *file, char const *step, TdoProcessStatus process_status, double duration, bool timed_out) {
     if (args->format == TDO_FORMAT_HUMAN) {
         bool log_output = false;
+
         if (!tdo_process_status_is_exit(process_status) || step[0] != 'f' || args->verbosity > TDO_VERBOSITY_NONE) {
             status->success_in_a_row = 0;
             if (status->finished > 0) fprintf(file, "\n");
-            fprintf(file, "%s::%s ", run->test->symbol.file->name.bytes, run->test->symbol.name.bytes);
+            tdo_run_print_progress(file, status);
+        } else if (status->finished == 0) {
+            tdo_run_print_progress(file, status);
         }
 
         if (timed_out) {
             status->timeout += 1;
             status->any_failed = true;
             log_output = true;
-            fprintf(file, "TIMEOUT");
+            tdo_colour_fprintf(file, TDO_COLOUR_BLUE, "TIMEOUT");
         } else if (tdo_process_status_is_exit(process_status)) {
             if (step[0] == 'f') {
-                if (status->finished > 0 && status->success_in_a_row == 0 && args->verbosity == TDO_VERBOSITY_NONE) fprintf(file, "\n");
+                if (status->finished > 0 && status->success_in_a_row == 0 && args->verbosity == TDO_VERBOSITY_NONE) {
+                    fprintf(file, "\n");
+                    tdo_run_print_progress(file, status);
+                }
 
                 status->success += 1;
                 status->success_in_a_row += 1;
 
                 if (args->verbosity == TDO_VERBOSITY_NONE) {
-                    fprintf(file, ".");
-                    if (status->success_in_a_row % 80 == 0) fprintf(file, "\n");
+                    tdo_colour_fprintf(file, TDO_COLOUR_GREEN, ".");
+                    if (status->success_in_a_row % 80 == 0) {
+                        fprintf(file, "\n");
+                        tdo_run_print_progress(file, status);
+                    }
                 } else {
-                    fprintf(file, "SUCCESS");
-                    if (args->verbosity == TDO_VERBOSITY_MAJOR) fprintf(file, "\n");
+                    tdo_colour_fprintf(file, TDO_COLOUR_GREEN, "SUCCESS");
                 }
             } else {
                 status->exit += 1;
                 status->any_failed = true;
                 log_output = true;
-                fprintf(file, "UNEXPECTED EXIT (" TDO_PROCESS_CODE_FORMAT ")\n", tdo_process_code_exit(process_status));
+                tdo_colour_fprintf(file, TDO_COLOUR_RED, "UNEXPECTED EXIT");
+                fprintf(file, " (" TDO_PROCESS_CODE_FORMAT ")", tdo_process_code_exit(process_status));
             }
         } else if (tdo_process_status_is_signal(process_status)) {
             status->signal += 1;
             status->any_failed = true;
             log_output = true;
-            fprintf(file, "SIGNAL (" TDO_PROCESS_CODE_FORMAT ")\n", tdo_process_code_signal(process_status));
+            tdo_colour_fprintf(file, TDO_COLOUR_RED, "SIGNAL");
+            fprintf(file, " (" TDO_PROCESS_CODE_FORMAT ")", tdo_process_code_signal(process_status));
         } else if (tdo_process_status_is_stop(process_status)) {
             fprintf(stderr, "When can this happen anyway?\n");
             fflush(NULL);
             abort();
-            fprintf(file, "STOPPED\n");
+            fprintf(file, "STOPPED");
+        }
+
+        if (!tdo_process_status_is_exit(process_status) || step[0] != 'f' || args->verbosity > TDO_VERBOSITY_NONE) {
+            fprintf(file, " %s::%s", run->test->symbol.file->name.bytes, run->test->symbol.name.bytes);
+            if (args->verbosity == TDO_VERBOSITY_MAJOR || step[0] != 'f') fprintf(file, "\n");
         }
 
         if (log_output || args->verbosity == TDO_VERBOSITY_MAJOR) {
-            fprintf(file, "Captured stdout ----------------------------------------------------------------\n");
+            tdo_colour_fprintf(file, TDO_COLOUR_GREY, "Captured stdout ----------------------------------------------------------------\n");
             tdo_human_escaped(file, run->out.data);
-            fprintf(file, "Captured stderr ----------------------------------------------------------------\n");
+            tdo_colour_fprintf(file, TDO_COLOUR_GREY, "Captured stderr ----------------------------------------------------------------\n");
             tdo_human_escaped(file, run->err.data);
-            fprintf(file, "--------------------------------------------------------------------------------");
+            tdo_colour_fprintf(file, TDO_COLOUR_GREY, "--------------------------------------------------------------------------------");
         }
 
     } else if (args->format == TDO_FORMAT_JSON) {
@@ -196,7 +224,9 @@ void tdo_run_report_error(struct TdoArguments *args, struct TdoRunStatus *status
 
     if (args->format == TDO_FORMAT_HUMAN) {
         if (status->finished > 0) fprintf(file, "\n");
-        fprintf(file, "%s::%s ERROR\n", test.symbol.file->name.bytes, test.symbol.name.bytes);
+        tdo_run_print_progress(file, status);
+        tdo_colour_fprintf(file, TDO_COLOUR_BLUE, "ERROR");
+        fprintf(file, " %s::%s\n", test.symbol.file->name.bytes, test.symbol.name.bytes);
         fprintf(file, "    %s", error);
     } else if (args->format == TDO_FORMAT_JSON) {
         if (status->finished > 0) fprintf(file, ",");
@@ -536,6 +566,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
 
     struct TdoRunStatus status;
     result = tdo_run_status_init(&status, arena, args);
+    status.total = tests.length;
     if (result != TDO_ERROR_OK) goto error_setup;
 
     TdoMonotoneTime time_start = tdo_time_get();
@@ -602,15 +633,30 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     } else {
         fprintf(stderr, "Ran %zu tests in %.2lf seconds:\n", tests.length, tdo_time_between(time_end, time_start));
     }
-    fprintf(stderr, "%ssuccess: %3zu/%zu\n", spacing, status.success, tests.length);
+    fprintf(stderr, "%ssuccess: ", spacing);
+    tdo_colour_fprintf(stderr, TDO_COLOUR_GREEN, "%3zu/%zu\n", status.success, tests.length);
 
     size_t total_fails = status.exit + status.timeout + status.signal + status.error;
     if (total_fails) {
-        fprintf(stderr, "%sfailure: %3zu/%zu\n", spacing, total_fails, tests.length);
-        if (status.exit > 0) fprintf(stderr, "%s%sexit:    %3zu/%zu\n", spacing, spacing, status.exit, total_fails);
-        if (status.signal > 0) fprintf(stderr, "%s%ssignal:  %3zu/%zu\n", spacing, spacing, status.signal, total_fails);
-        if (status.timeout > 0) fprintf(stderr, "%s%stimeout: %3zu/%zu\n", spacing, spacing, status.timeout, total_fails);
-        if (status.error > 0) fprintf(stderr, "%s%serror:   %3zu/%zu\n", spacing, spacing, status.error, total_fails);
+        fprintf(stderr, "%sfailure: ", spacing);
+        tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", total_fails, tests.length);
+
+        if (status.exit > 0) {
+            fprintf(stderr, "%s%sexit:    ", spacing, spacing);
+            tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", status.exit, total_fails);
+        }
+        if (status.signal > 0) {
+            fprintf(stderr, "%s%ssignal:  ", spacing, spacing);
+            tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", status.signal, total_fails);
+        }
+        if (status.timeout > 0) {
+            fprintf(stderr, "%s%stimeout: ", spacing, spacing);
+            tdo_colour_fprintf(stderr, TDO_COLOUR_BLUE, "%3zu/%zu\n", status.timeout, total_fails);
+        }
+        if (status.error > 0) {
+            fprintf(stderr, "%s%serror:   ", spacing, spacing);
+            tdo_colour_fprintf(stderr, TDO_COLOUR_BLUE, "%3zu/%zu\n", status.error, total_fails);
+        }
     }
 
     tdo_run_status_deinit(status, args);

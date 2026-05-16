@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <io.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include "../platform.h"
 
 TdoMonotoneTime tdo_time_get(void) {
@@ -146,4 +147,36 @@ TdoProcessCode tdo_process_code_signal(TdoProcessStatus status) {
 TdoProcessCode tdo_process_code_stop(TdoProcessStatus status) {
     (void)status; // unused
     abort();
+}
+
+int tdo_colour_fprintf(FILE *file, enum TdoColour colour, char const *format, ...) {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+    WORD saved_attributes;
+
+    /* Save current attributes */
+    GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
+    saved_attributes = consoleInfo.wAttributes;
+
+    switch (colour) {
+        case TDO_COLOUR_WHITE: break;
+        case TDO_COLOUR_GREY: SetConsoleTextAttribute(hConsole, FOREGROUND_INTENSITY); break;
+        case TDO_COLOUR_GREEN: SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN); break;
+        case TDO_COLOUR_BLUE: SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE); break;
+        case TDO_COLOUR_RED: SetConsoleTextAttribute(hConsole, FOREGROUND_RED); break;
+    }
+
+    int result = 0;
+    {
+        va_list arglist;
+        va_start(arglist, format);
+
+        result = vfprintf(file, format, arglist);
+
+        va_end(arglist);
+    }
+
+    /* Restore original attributes */
+    SetConsoleTextAttribute(hConsole, saved_attributes);
+    return result;
 }

@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include <unistd.h>
 #include <dlfcn.h>
@@ -97,4 +98,29 @@ TdoProcessCode tdo_process_code_signal(TdoProcessStatus status) {
 
 TdoProcessCode tdo_process_code_stop(TdoProcessStatus status) {
     return WSTOPSIG(status);
+}
+
+int tdo_colour_fprintf(FILE *file, enum TdoColour colour, char const *format, ...) {
+    char const *col = "";
+    switch (colour) {
+        case TDO_COLOUR_WHITE: break;
+        case TDO_COLOUR_GREY: col = "\x1b[90m"; break;
+        case TDO_COLOUR_GREEN: col = "\x1b[0;32m"; break;
+        case TDO_COLOUR_BLUE: col = "\x1b[0;34m"; break;
+        case TDO_COLOUR_RED: col = "\x1b[0;31m"; break;
+    }
+
+    int result = 0;
+    {
+        va_list arglist;
+        va_start(arglist, format);
+
+        fputs(col, file);
+        result = vfprintf(file, format, arglist);
+        fputs("\x1b[0m", file);
+
+        va_end(arglist);
+    }
+
+    return result;
 }

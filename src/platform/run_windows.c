@@ -68,6 +68,7 @@ struct TdoRunStatus {
     HANDLE iocp;
     DWORD pid;
     struct TdoString executable_name;
+    size_t total;
     size_t started;
     size_t finished;
     size_t running;
