@@ -1,4 +1,4 @@
-from typing import Callable, Generator, List, Optional, Any, Tuple, Union, TYPE_CHECKING
+from typing import Callable, Generator, Dict, List, Optional, Any, Tuple, Union, TYPE_CHECKING
 import re
 import enum
 import functools
@@ -455,42 +455,12 @@ class RunTests:
         self.function = function
 
     def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
-        return self.function(tests, executable=executable, args=args)
-
-
-def strip_asan_noise(text: str) -> str:
-    """
-    Removes ASan / interception_win warnings from stderr.
-    Example noise: ==2544==interception_win: unhandled instruction...
-    """
-    if not text:
-        return ""
-
-    # Matches lines starting with ==digits== followed by interception_win or asan
-    # and removes the entire line including the trailing newline.
-    pattern = r"==\d+==(?:interception_win|asan|AddressSanitizer):.*?\n"
-
-    return re.sub(pattern, "", text, flags=re.IGNORECASE)
-
-
-@pytest.fixture
-def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
-        p = subprocess.Popen(
-            [executable or runner(), '--format', 'json', *[str(a) for a in args or []]],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-            text=True,
-        )
-        out, err = p.communicate(input=tests)
-
+        code, out, err = self.function(tests, executable=executable, args=args, raw=False)
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
-            assert p.returncode != 0, f'Successful run returned malformed json: "{out}"'
-            return ErrorCode(code=p.returncode), err
+            assert code.code != 0, f'Successful run returned malformed json: "{out}"'
+            return code, err
 
         result = []
         for r in raw_result:
@@ -529,6 +499,41 @@ def run_tests(runner: Runner):
             result.append(c)
 
         return result, err
+
+    def args(self, executable: str, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Dict[str, Any], str]:
+        code, out, err = self.function('', executable=executable, args=args, raw=True)
+        return code, json.loads(out), err
+
+
+def strip_asan_noise(text: str) -> str:
+    """
+    Removes ASan / interception_win warnings from stderr.
+    Example noise: ==2544==interception_win: unhandled instruction...
+    """
+    if not text:
+        return ""
+
+    # Matches lines starting with ==digits== followed by interception_win or asan
+    # and removes the entire line including the trailing newline.
+    pattern = r"==\d+==(?:interception_win|asan|AddressSanitizer):.*?\n"
+
+    return re.sub(pattern, "", text, flags=re.IGNORECASE)
+
+
+@pytest.fixture
+def run_tests(runner: Runner):
+    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None, raw: bool = False):
+        p = subprocess.Popen(
+            [executable or runner(), '--format', 'json', *[str(a) for a in args or []]],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            text=True,
+        )
+        out, err = p.communicate(input=tests)
+        return ErrorCode(code=p.returncode), out, err
+
     return RunTests(run)
 
 
