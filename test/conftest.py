@@ -469,7 +469,7 @@ class RunTests:
     def __init__(self, runner: Runner):
         self.runner = runner
 
-    def execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
+    def _execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
         p = subprocess.Popen(
             [executable or self.runner(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
@@ -479,10 +479,14 @@ class RunTests:
             text=True,
         )
         out, err = p.communicate(input=tests)
-        return ErrorCode(p.returncode), strip_asan_noise(out), err
+        return ErrorCode(p.returncode), out, strip_asan_noise(err)
+
+    def execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
+        code, out, err = self._execute(tests, executable=executable, args=args)
+        return code, strip_asan_noise(out), err
 
     def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Optional[List[Result]], str]:
-        code, out, err = self.execute(tests, executable=executable, args=['--format', 'json', *(args or [])])
+        code, out, err = self._execute(tests, executable=executable, args=['--format', 'json', *(args or [])])
 
         try:
             raw_result = json.loads(out)
