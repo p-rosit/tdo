@@ -1,5 +1,7 @@
+import os
+import pytest
 from typing import Any
-from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, ResultTimeout, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, ErrorCode, Error, approx
+from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, ResultTimeout, ResultStop, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, ErrorCode, Error, approx
 
 
 def test_success(library: str, run_tests: RunTests):
@@ -116,6 +118,21 @@ def test_aborts(library: str, run_tests: RunTests):
         step=StepTest(file=library, name='test_aborts'),
         signal=approx(0, abs=1e12),  # the specific signal integer is implementation defined
         stdout='',
+        stderr='',
+    )]
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='Stopped is not a process state on windows')
+def test_stop(library: str, run_tests: RunTests):
+    code, result, _ = run_tests(f'test::{library}::test_stop')
+    assert code == ErrorCode(code=Error.ok)
+    assert result == [ResultStop(
+        file=library,
+        name='test_stop',
+        duration=approx(0.0, abs=100.0),
+        step=StepTest(file=library, name='test_stop'),
+        stop=approx(0, abs=1e12),  # the specific stop integer is implementation defined
+        stdout='Before stop\n',
         stderr='',
     )]
 
