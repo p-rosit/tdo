@@ -138,7 +138,22 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
         }
 
         if (!tdo_process_status_is_exit(process_status) || step[0] != 'f' || args->verbosity > TDO_VERBOSITY_NONE) {
-            fprintf(file, " %s::%s", run->test->symbol.file->name.bytes, run->test->symbol.name.bytes);
+            fprintf(file, " test::%s::%s", run->test->symbol.file->name.bytes, run->test->symbol.name.bytes);
+            struct TdoFixture *fixtures = run->test->fixtures.data;
+            for (size_t i = 0; i < run->test->fixtures.length; i++) {
+                struct TdoFixture *fixture = &fixtures[i];
+                if (fixture->kind == TDO_FIXTURE_BEFORE) {
+                    fprintf(file, " before::");
+                } else if (fixture->kind == TDO_FIXTURE_AFTER) {
+                    fprintf(file, " after::");
+                } else {
+                    fprintf(stderr, "Unknown fixture kind: %d\n", fixture->kind);
+                    fflush(NULL);
+                    abort();
+                }
+                fprintf(file, "%s::%s", fixture->symbol.file->name.bytes, fixture->symbol.name.bytes);
+            }
+
             if (args->verbosity == TDO_VERBOSITY_MAJOR || step[0] != 'f') fprintf(file, "\n");
         }
 
@@ -226,7 +241,21 @@ void tdo_run_report_error(struct TdoArguments *args, struct TdoRunStatus *status
         if (status->finished > 0) fprintf(file, "\n");
         tdo_run_print_progress(file, status);
         tdo_colour_fprintf(file, TDO_COLOUR_BLUE, "ERROR");
-        fprintf(file, " %s::%s\n", test.symbol.file->name.bytes, test.symbol.name.bytes);
+        fprintf(file, " test::%s::%s\n", test.symbol.file->name.bytes, test.symbol.name.bytes);
+        struct TdoFixture *fixtures = test.fixtures.data;
+        for (size_t i = 0; i < test.fixtures.length; i++) {
+            struct TdoFixture *fixture = &fixtures[i];
+            if (fixture->kind == TDO_FIXTURE_BEFORE) {
+                fprintf(file, " before::");
+            } else if (fixture->kind == TDO_FIXTURE_AFTER) {
+                fprintf(file, " after::");
+            } else {
+                fprintf(stderr, "Unknown fixture kind: %d\n", fixture->kind);
+                fflush(NULL);
+                abort();
+            }
+            fprintf(file, "%s::%s", fixture->symbol.file->name.bytes, fixture->symbol.name.bytes);
+        }
         fprintf(file, "    %s", error);
     } else if (args->format == TDO_FORMAT_JSON) {
         if (status->finished > 0) fprintf(file, ",");

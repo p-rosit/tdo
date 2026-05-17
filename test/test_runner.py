@@ -1,9 +1,10 @@
 from typing import Any
-from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, ResultTimeout, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, approx
+from conftest import ResultComplete, ResultError, ResultExit, ResultSignal, ResultTimeout, StepFixtureAfter, StepFixtureBefore, StepTest, RunTests, ErrorCode, Error, approx
 
 
 def test_success(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_success')
+    code, result, _ = run_tests(f'test::{library}::test_success')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success',
@@ -14,11 +15,12 @@ def test_success(library: str, run_tests: RunTests):
 
 
 def test_success_with_comment(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         # a comment
         test::{library}::test_success
         # another comment
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success',
@@ -34,7 +36,8 @@ def test_success_with_comment(library: str, run_tests: RunTests):
 
 
 def test_success_with_stdout(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_success_with_stdout')
+    code, result, _ = run_tests(f'test::{library}::test_success_with_stdout')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success_with_stdout',
@@ -45,7 +48,8 @@ def test_success_with_stdout(library: str, run_tests: RunTests):
 
 
 def test_success_with_stderr(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_success_with_stderr')
+    code, result, _ = run_tests(f'test::{library}::test_success_with_stderr')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success_with_stderr',
@@ -56,7 +60,8 @@ def test_success_with_stderr(library: str, run_tests: RunTests):
 
 
 def test_early_exit(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_early_exit')
+    code, result, _ = run_tests(f'test::{library}::test_early_exit')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultExit(
         file=library,
         name='test_early_exit',
@@ -69,11 +74,12 @@ def test_early_exit(library: str, run_tests: RunTests):
 
 
 def test_timeout(library: str, run_tests: RunTests):
-    result, _ = run_tests(f"""
+    code, result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_timeout
         test::{library}::test_success
     """, args=['--timeout', 0.1])
+    assert code == ErrorCode(code=Error.ok)
     assert result == [
         ResultComplete(
             file=library,
@@ -101,7 +107,8 @@ def test_timeout(library: str, run_tests: RunTests):
 
 
 def test_aborts(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_aborts')
+    code, result, _ = run_tests(f'test::{library}::test_aborts')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultSignal(
         file=library,
         name='test_aborts',
@@ -114,10 +121,11 @@ def test_aborts(library: str, run_tests: RunTests):
 
 
 def test_fixture_before(library: str, run_tests: RunTests):
-    result, _ = run_tests(
+    code, result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'before::{library}::test_success_with_stdout'
     )
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success_with_other_stdout',
@@ -128,10 +136,11 @@ def test_fixture_before(library: str, run_tests: RunTests):
 
 
 def test_fixture_after(library: str, run_tests: RunTests):
-    result, _ = run_tests(
+    code, result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'after::{library}::test_success_with_stdout'
     )
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success_with_other_stdout',
@@ -142,13 +151,14 @@ def test_fixture_after(library: str, run_tests: RunTests):
 
 
 def test_fixture_multiple(library: str, run_tests: RunTests):
-    result, _ = run_tests(
+    code, result, _ = run_tests(
         f'test::{library}::test_success_with_other_stdout '
         f'before::{library}::test_success_with_stdout '
         f'after::{library}::test_success_with_stdout '
         f'before::{library}::test_success_with_stdout '
         f'after::{library}::test_success_with_stdout '
     )
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultComplete(
         file=library,
         name='test_success_with_other_stdout',
@@ -159,7 +169,7 @@ def test_fixture_multiple(library: str, run_tests: RunTests):
 
 
 def test_all(library: str, run_tests: RunTests):
-    result, _ = run_tests(f"""
+    code, result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_aborts
         test::{library}::test_success_with_stdout
@@ -167,6 +177,7 @@ def test_all(library: str, run_tests: RunTests):
         test::{library}::test_success_with_other_stdout
         test::{library}::test_success_with_stderr
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert result == [
         ResultComplete(
             file=library,
@@ -221,7 +232,7 @@ def test_all_parallel(library: str, run_tests: RunTests):
     def sort_func(x: Any):
         return str(x)
 
-    result, _ = run_tests(f"""
+    code, result, _ = run_tests(f"""
         test::{library}::test_success
         test::{library}::test_aborts
         test::{library}::test_success_with_stdout
@@ -229,6 +240,7 @@ def test_all_parallel(library: str, run_tests: RunTests):
         test::{library}::test_success_with_other_stdout
         test::{library}::test_success_with_stderr
     """, args=['-j4'])
+    assert code == ErrorCode(code=Error.ok)
     assert sorted(result, key=sort_func) == sorted([
         ResultComplete(
             file=library,
@@ -280,12 +292,14 @@ def test_all_parallel(library: str, run_tests: RunTests):
 
 
 def test_run_empty(run_tests: RunTests):
-    result, _ = run_tests('')
+    code, result, _ = run_tests('')
+    assert code == ErrorCode(code=Error.ok)
     assert result == []
 
 
 def test_error_load_library_test(run_tests: RunTests):
-    result, _ = run_tests('test::library_that_doesn\'t_exist.so::test_name')
+    code, result, _ = run_tests('test::library_that_doesn\'t_exist.so::test_name')
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultError(
         file='library_that_doesn\'t_exist.so',
         name='test_name',
@@ -296,9 +310,10 @@ def test_error_load_library_test(run_tests: RunTests):
 
 
 def test_error_load_library_fixture_before(library: str, run_tests: RunTests):
-    result, _ = run_tests(f"""
+    code, result, _ = run_tests(f"""
         test::{library}::test_success before::missing_library.so::fixture_name
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultError(
         file=library,
         name='test_success',
@@ -309,9 +324,10 @@ def test_error_load_library_fixture_before(library: str, run_tests: RunTests):
 
 
 def test_error_load_library_fixture_after(library: str, run_tests: RunTests):
-    result, _ = run_tests(f"""
+    code, result, _ = run_tests(f"""
         test::{library}::test_success after::missing_library.so::fixture_name
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert result == [ResultError(
         file=library,
         name='test_success',
@@ -322,7 +338,8 @@ def test_error_load_library_fixture_after(library: str, run_tests: RunTests):
 
 
 def test_error_load_test(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::not_a_test')
+    code, result, _ = run_tests(f'test::{library}::not_a_test')
+    assert code == ErrorCode(code=Error.ok)
 
     assert isinstance(result, list)
     assert len(result) == 1
@@ -342,7 +359,8 @@ def test_error_load_test(library: str, run_tests: RunTests):
 
 
 def test_error_load_fixture_before(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_success before::{library}::not_a_fixture')
+    code, result, _ = run_tests(f'test::{library}::test_success before::{library}::not_a_fixture')
+    assert code == ErrorCode(code=Error.ok)
 
     assert isinstance(result, list)
     assert len(result) == 1
@@ -362,7 +380,8 @@ def test_error_load_fixture_before(library: str, run_tests: RunTests):
 
 
 def test_error_load_fixture_after(library: str, run_tests: RunTests):
-    result, _ = run_tests(f'test::{library}::test_success after::{library}::not_a_fixture')
+    code, result, _ = run_tests(f'test::{library}::test_success after::{library}::not_a_fixture')
+    assert code == ErrorCode(code=Error.ok)
 
     assert isinstance(result, list)
     assert len(result) == 1
@@ -382,45 +401,50 @@ def test_error_load_fixture_after(library: str, run_tests: RunTests):
 
 
 def test_parse_missing_library(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         test::::test_success
         test::{library}::test_success
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert 'Empty library name' in err
     assert result == [ResultComplete(file=library, name='test_success', duration=approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
 def test_parse_missing_name(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         test::library.so::
         test::{library}::test_success
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert 'Empty symbol name' in err
     assert result == [ResultComplete(file=library, name='test_success', duration=approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
 def test_parse_invalid_prefix(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         thing::library.so::test_name
         test::{library}::test_success
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert 'Expected test symbol to start with \'test::\', got \'thing:\'' in err
     assert result == [ResultComplete(file=library, name='test_success', duration=approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
 def test_parse_first_not_test(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         after::{library}::test_success test::{library}::test_success
         test::{library}::test_success
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert 'Expected test symbol to start with \'test::\', got \'after:\'' in err
     assert result == [ResultComplete(file=library, name='test_success', duration=approx(0.0, abs=100.0), stdout='', stderr='')]
 
 
 def test_parse_invalid_fixture(library: str, run_tests: RunTests):
-    result, err = run_tests(f"""
+    code, result, err = run_tests(f"""
         test::{library}::test_success behind::{library}::test_success
         test::{library}::test_success
     """)
+    assert code == ErrorCode(code=Error.ok)
     assert 'Expected fixture symbol to start with \'before::\' or \'after::\', got \'behind::\'' in err
     assert result == [ResultComplete(file=library, name='test_success', duration=approx(0.0, abs=100.0), stdout='', stderr='')]

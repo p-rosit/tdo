@@ -1,4 +1,4 @@
-from typing import Callable, Generator, List, Optional, Any, Tuple, Union, TYPE_CHECKING
+from typing import Callable, Generator, Dict, List, Optional, Any, Tuple, Union, TYPE_CHECKING
 import re
 import enum
 import functools
@@ -450,14 +450,6 @@ class ErrorCode:
             self.code = self.code.value
 
 
-class RunTests:
-    def __init__(self, function: Callable):
-        self.function = function
-
-    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[Union[List[Result], ErrorCode], str]:
-        return self.function(tests, executable=executable, args=args)
-
-
 def strip_asan_noise(text: str) -> str:
     """
     Removes ASan / interception_win warnings from stderr.
@@ -473,11 +465,13 @@ def strip_asan_noise(text: str) -> str:
     return re.sub(pattern, "", text, flags=re.IGNORECASE)
 
 
-@pytest.fixture
-def run_tests(runner: Runner):
-    def run(tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None):
+class RunTests:
+    def __init__(self, runner: Runner):
+        self.runner = runner
+
+    def _execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
         p = subprocess.Popen(
-            [executable or runner(), '--format', 'json', *[str(a) for a in args or []]],
+            [executable or self.runner(), *[str(a) for a in args or []]],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -485,12 +479,20 @@ def run_tests(runner: Runner):
             text=True,
         )
         out, err = p.communicate(input=tests)
+        return ErrorCode(p.returncode), out, strip_asan_noise(err)
+
+    def execute(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, str, str]:
+        code, out, err = self._execute(tests, executable=executable, args=args)
+        return code, strip_asan_noise(out), err
+
+    def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Optional[List[Result]], str]:
+        code, out, err = self._execute(tests, executable=executable, args=['--format', 'json', *(args or [])])
 
         try:
             raw_result = json.loads(out)
         except json.JSONDecodeError:
-            assert p.returncode != 0, f'Successful run returned malformed json: "{out}"'
-            return ErrorCode(code=p.returncode), err
+            assert code.code != 0, f'Successful run returned malformed json: "{out}"'
+            return code, None, err
 
         result = []
         for r in raw_result:
@@ -528,8 +530,22 @@ def run_tests(runner: Runner):
 
             result.append(c)
 
-        return result, err
-    return RunTests(run)
+        return code, result, err
+
+    def args(self, executable: str, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Dict[str, Any], str]:
+        code, out, err = self.execute('', executable=executable, args=args)
+
+        try:
+            a = json.loads(out)
+        except json.JSONDecodeError:
+            a: Dict[str, Any] = {}
+
+        return code, a, err
+
+
+@pytest.fixture
+def run_tests(runner: Runner):
+    return RunTests(runner)
 
 
 @pytest.fixture(scope='session')
