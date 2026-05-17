@@ -479,7 +479,7 @@ class RunTests:
             text=True,
         )
         out, err = p.communicate(input=tests)
-        return ErrorCode(p.returncode), out, err
+        return ErrorCode(p.returncode), strip_asan_noise(out), err
 
     def __call__(self, tests: str, executable: Optional[str] = None, args: Optional[List[Any]] = None) -> Tuple[ErrorCode, Optional[List[Result]], str]:
         code, out, err = self.execute(tests, executable=executable, args=['--format', 'json', *(args or [])])
