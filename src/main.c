@@ -157,16 +157,10 @@ int main(int argc, char **argv) {
         }
     }
 
-    struct TdoArenaState state = tdo_arena_state_get(arena);
     struct TdoFile *files = (struct TdoFile*) test_files.data;
     for (size_t i = 0; i < test_files.length; i++) {
-        tdo_arena_state_set(arena, state);
-
         files[i].library = tdo_dynamic_library_load(files[i].name.bytes);
-        char const *err = tdo_dynamic_get_error(arena);
-        if (err != NULL) fprintf(stderr, "%s\n", err);
     }
-    tdo_arena_state_set(arena, state);
 
     if (args.single_test == NULL) {
         result = tdo_run_all(args, output, arena, tests);
