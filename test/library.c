@@ -3,6 +3,15 @@
 
 #if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
     #define EXPORT
+    #include <signal.h>
+
+    void test_stop(void) {
+        fprintf(stdout, "Before stop\n");
+        fflush(NULL);
+        raise(SIGSTOP);
+        fprintf(stdout, "after stop\n");
+        fflush(NULL);
+    }
 #elif defined(_WIN32)
     #define EXPORT __declspec(dllexport)
 #endif

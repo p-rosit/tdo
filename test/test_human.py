@@ -1,5 +1,6 @@
 import re
 import os
+import pytest
 from conftest import RunTests, ErrorCode, Error
 
 
@@ -72,6 +73,29 @@ def test_error(library: str, run_tests: RunTests):
         r'    success:   0/1\n'
         r'    failure:   1/1\n'
         r'        error:     1/1\n'
+    )
+    assert re.fullmatch(pattern, strip_ansi(err)), err
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='Stopped is not a process state on windows')
+def test_stop(library: str, run_tests: RunTests):
+    code, out, err = run_tests.execute(f'test::{library}::test_stop', args=['--format', 'human'])
+    assert code == ErrorCode(code=Error.ok)
+    pattern = (
+        r'\[  0%\] STOP \(-?\d+\) test::' + re.escape(library) + r'::test_stop\n'
+        r'Captured stdout ----------------------------------------------------------------\n'
+        r'Before stop\\n\n'
+        r'Captured stderr ----------------------------------------------------------------\n'
+        r'--------------------------------------------------------------------------------\n'
+    )
+    assert re.fullmatch(pattern, strip_ansi(out)), out
+    pattern = (
+        r'Reading tests from stdin:\n'
+        r'Running 1 tests\n'
+        r'Ran 1 tests in \d+\.\d{2} seconds:\n'
+        r'    success:   0/1\n'
+        r'    failure:   1/1\n'
+        r'        stop:      1/1\n'
     )
     assert re.fullmatch(pattern, strip_ansi(err)), err
 
