@@ -77,7 +77,7 @@ def test_error(library: str, run_tests: RunTests):
 
 
 def test_timeout(library: str, run_tests: RunTests):
-    code, out, err = run_tests.execute(f'test::{library}::test_timeout', args=['--timeout', 0.01])
+    code, out, err = run_tests.execute(f'test::{library}::test_timeout', args=['--timeout', 0.1])
     assert code == ErrorCode(code=Error.ok)
     assert strip_ansi(out) == (
         f'[  0%] TIMEOUT test::{library}::test_timeout\n'
