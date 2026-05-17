@@ -115,6 +115,18 @@ def test_success_line_break(library: str, run_tests: RunTests):
     assert re.fullmatch(pattern, strip_ansi(err)), err
 
 
+def test_prints_name(library: str, run_tests: RunTests):
+    test_definition = f'test::{library}::test_early_exit after::{library}::test_success_with_stdout before::{library}::test_success'
+    code, out, _ = run_tests.execute(test_definition, args=['--format', 'human'])
+    assert code == ErrorCode(code=Error.ok)
+    assert strip_ansi(out) == (
+        f'[  0%] UNEXPECTED EXIT (4) {test_definition}\n'
+        'Captured stdout ----------------------------------------------------------------\n'
+        'Captured stderr ----------------------------------------------------------------\n'
+        '--------------------------------------------------------------------------------\n'
+    )
+
+
 def test_all(library: str, run_tests: RunTests):
     code, out, err = run_tests.execute(f"""
         test::{library}::test_success
