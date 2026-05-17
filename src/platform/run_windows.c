@@ -77,6 +77,7 @@ struct TdoRunStatus {
     size_t timeout;
     size_t signal;
     size_t error;
+    size_t stop;
     size_t success_in_a_row;
     bool fork_failed;
     bool log_setup_failed;

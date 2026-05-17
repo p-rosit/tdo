@@ -44,6 +44,7 @@ struct TdoRunStatus {
     size_t timeout;
     size_t signal;
     size_t error;
+    size_t stop;
     size_t success_in_a_row;
     bool fork_failed;
     bool log_setup_failed;
@@ -182,7 +183,7 @@ void tdo_run_start_new(struct TdoRunStatus *status, struct TdoArena *arena, stru
 
 void tdo_run_poll_exit(struct TdoArguments *args, struct TdoRun *run, struct TdoRunStatus *status, struct TdoArena *arena, FILE *output) {
     int return_status;
-    if (waitpid(run->pid, &return_status, WNOHANG) > 0) {
+    if (waitpid(run->pid, &return_status, WUNTRACED | WNOHANG) > 0) {
         enum TdoError out_err = tdo_log_drain(&run->out, arena);
         enum TdoError err_err = tdo_log_drain(&run->err, arena);
         enum TdoError status_err = tdo_log_drain(&run->status, arena);
@@ -204,6 +205,8 @@ void tdo_run_poll_exit(struct TdoArguments *args, struct TdoRun *run, struct Tdo
         close(run->status.fd);
         status->running -= 1;
         status->finished += 1;
+
+        if (WIFSTOPPED(return_status)) kill(run->pid, SIGKILL);
     }
 }
 

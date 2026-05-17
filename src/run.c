@@ -131,10 +131,11 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
             tdo_colour_fprintf(file, TDO_COLOUR_RED, "SIGNAL");
             fprintf(file, " (" TDO_PROCESS_CODE_FORMAT ")", tdo_process_code_signal(process_status));
         } else if (tdo_process_status_is_stop(process_status)) {
-            fprintf(stderr, "When can this happen anyway?\n");
-            fflush(NULL);
-            abort();
-            fprintf(file, "STOPPED");
+            status->stop += 1;
+            status->any_failed = true;
+            log_output = true;
+            tdo_colour_fprintf(file, TDO_COLOUR_RED, "STOP");
+            fprintf(file, " (" TDO_PROCESS_CODE_FORMAT ")", tdo_process_code_stop(process_status));
         }
 
         if (!tdo_process_status_is_exit(process_status) || step[0] != 'f' || args->verbosity > TDO_VERBOSITY_NONE) {
@@ -199,9 +200,8 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
             status->any_failed = true;
             fprintf(file, "signal");
         } else if (tdo_process_status_is_stop(process_status)) {
-            fprintf(stderr, "When can this happen anyway?\n");
-            fflush(NULL);
-            abort();
+            status->stop += 1;
+            status->any_failed = true;
             fprintf(file, "stop");
         }
         fprintf(file, "\"");
@@ -665,7 +665,7 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
     fprintf(stderr, "%ssuccess: ", spacing);
     tdo_colour_fprintf(stderr, TDO_COLOUR_GREEN, "%3zu/%zu\n", status.success, tests.length);
 
-    size_t total_fails = status.exit + status.timeout + status.signal + status.error;
+    size_t total_fails = status.exit + status.timeout + status.signal + status.error + status.stop;
     if (total_fails) {
         fprintf(stderr, "%sfailure: ", spacing);
         tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", total_fails, tests.length);
@@ -677,6 +677,10 @@ enum TdoError tdo_run_all(struct TdoArguments args, FILE *output, struct TdoAren
         if (status.signal > 0) {
             fprintf(stderr, "%s%ssignal:  ", spacing, spacing);
             tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", status.signal, total_fails);
+        }
+        if (status.stop > 0) {
+            fprintf(stderr, "%s%sstop:    ", spacing, spacing);
+            tdo_colour_fprintf(stderr, TDO_COLOUR_RED, "%3zu/%zu\n", status.stop, total_fails);
         }
         if (status.timeout > 0) {
             fprintf(stderr, "%s%stimeout: ", spacing, spacing);
