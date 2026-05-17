@@ -70,7 +70,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
 
 void tdo_run_print_progress(FILE *file, struct TdoRunStatus *status) {
     bool warning = status->error > 0 || status->timeout > 0;
-    bool error = status->signal > 0 || status->exit > 0;
+    bool error = status->signal > 0 || status->exit > 0 || status->stop > 0;
 
     if (!warning && !error) {
         fprintf(file, "[%3.0lf%%] ", 100.0 * (double) status->finished / (double) status->total);
@@ -156,6 +156,7 @@ void tdo_run_report_exit(struct TdoArguments *args, struct TdoRunStatus *status,
             }
 
             if (args->verbosity == TDO_VERBOSITY_MAJOR || step[0] != 'f') fprintf(file, "\n");
+            if (timed_out || step[0] != 'f') fprintf(file, "Current step: %s\n", step);
         }
 
         if (log_output || args->verbosity == TDO_VERBOSITY_MAJOR) {
@@ -256,6 +257,7 @@ void tdo_run_report_error(struct TdoArguments *args, struct TdoRunStatus *status
             }
             fprintf(file, "%s::%s", fixture->symbol.file->name.bytes, fixture->symbol.name.bytes);
         }
+        fprintf(file, "Current step: %s\n", step);
         fprintf(file, "    %s", error);
     } else if (args->format == TDO_FORMAT_JSON) {
         if (status->finished > 0) fprintf(file, ",");
