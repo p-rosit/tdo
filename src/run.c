@@ -70,7 +70,7 @@ void tdo_log_dump(struct TdoLog log, FILE *file, char const *name) {
 
 void tdo_run_print_progress(FILE *file, struct TdoRunStatus *status) {
     bool warning = status->error > 0 || status->timeout > 0;
-    bool error = status->signal > 0 || status->exit > 0;
+    bool error = status->signal > 0 || status->exit > 0 || status->stop > 0;
 
     if (!warning && !error) {
         fprintf(file, "[%3.0lf%%] ", 100.0 * (double) status->finished / (double) status->total);
