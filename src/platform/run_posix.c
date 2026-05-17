@@ -312,6 +312,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
         .timeout = 0,
         .signal = 0,
         .error = 0,
+        .stop = 0,
         .success_in_a_row = 0,
         .fork_failed = false,
         .log_setup_failed = false,
