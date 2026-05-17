@@ -70,6 +70,11 @@ int main(int argc, char **argv) {
         }
     }
 
+    #if defined(TDO_WINDOWS)
+        SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+        _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+    #endif
+
     struct TdoArguments args;
     result = tdo_arguments_parse(&args, argc, argv);
     if (result != TDO_ERROR_OK) goto error_parse_args;

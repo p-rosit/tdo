@@ -495,6 +495,16 @@ void tdo_run_poll_event(struct TdoRunStatus *status, struct TdoArena *arena, str
         fflush(NULL);
         abort();
     }
+
+    TdoMonotoneTime current = tdo_time_get();
+    for (size_t i = 0; i < args.processes; i++) {
+        struct TdoRun *r = &status->runs[i];
+        if (!r->active) continue;
+        if (args.time_limit < tdo_time_between(current, r->start_time)) {
+            r->timed_out = true;
+            TerminateProcess(r->process_handle, 0);
+        }
+    }
 }
 
 // longest pipe name: \\.\pipe\tdo_pipe_AAAAAA_18446744073709551615_4294967296_18446744073709551615
@@ -577,8 +587,7 @@ enum TdoError tdo_run_status_init(struct TdoRunStatus *status, struct TdoArena *
     }
 
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
-    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_PROCESS_TIME;
-    jeli.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart = (LONGLONG)(args.time_limit * 1e7);
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
     if (!SetInformationJobObject(status->job, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli))) {
         result = TDO_ERROR_OS;
