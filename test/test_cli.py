@@ -49,7 +49,7 @@ def test_processes_invalid_number(mock_runner: MockRunner, run_tests: RunTests):
     r = mock_runner(Mock(names=['tdo_arguments_parse'], file='output_cli.c', defined_in='arguments.c'))
 
     code, _, err = run_tests.args(r, args=['-jdata'])
-    assert err == 'Could not parse amount of threads: \'data\'\n'
+    assert err.startswith('Could not parse amount of processes:')
     assert code == ErrorCode(code=Error.arg_parse)
 
 
@@ -57,7 +57,7 @@ def test_processes_half_number(mock_runner: MockRunner, run_tests: RunTests):
     r = mock_runner(Mock(names=['tdo_arguments_parse'], file='output_cli.c', defined_in='arguments.c'))
 
     code, _, err = run_tests.args(r, args=['-j5d'])
-    assert err == 'Could not parse amount of threads: \'5d\'\n'
+    assert err == 'Could not parse amount of processes: \'5d\'\n'
     assert code == ErrorCode(code=Error.arg_parse)
 
 
